@@ -12,6 +12,9 @@ const badgeVariants = cva(
         secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
+        easy: "border-transparent bg-tiktok-cyan/20 text-tiktok-cyan",
+        medium: "border-transparent bg-amber-500/20 text-amber-400",
+        hard: "border-transparent bg-tiktok-pink/20 text-tiktok-pink",
       },
     },
     defaultVariants: {
