@@ -15,6 +15,9 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        cyan: "bg-tiktok-cyan text-background font-semibold hover:bg-tiktok-cyan/90 glow-cyan",
+        pink: "bg-tiktok-pink text-foreground font-semibold hover:bg-tiktok-pink/90 glow-pink",
+        glass: "glass text-foreground hover:bg-muted/60",
       },
       size: {
         default: "h-10 px-4 py-2",
