@@ -10,6 +10,34 @@ interface Body {
   round_id?: string; // required for close/resolve
 }
 
+async function broadcastOverlay(
+  supabaseUrl: string,
+  serviceKey: string,
+  overlayToken: string,
+  event: string,
+  payload: Record<string, unknown>,
+) {
+  try {
+    const client = createClient(supabaseUrl, serviceKey, {
+      realtime: { params: { eventsPerSecond: 10 } },
+    });
+    const channel = client.channel(`overlay:${overlayToken}`, {
+      config: { broadcast: { self: false, ack: true } },
+    });
+    await new Promise<void>((resolve) => {
+      channel.subscribe((status) => {
+        if (status === "SUBSCRIBED") resolve();
+      });
+      // safety timeout
+      setTimeout(() => resolve(), 1500);
+    });
+    await channel.send({ type: "broadcast", event, payload });
+    await client.removeChannel(channel);
+  } catch (e) {
+    console.error("broadcastOverlay failed:", e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -74,6 +102,10 @@ Deno.serve(async (req) => {
       await admin.from("session_questions").update({ played: true })
         .eq("session_id", body.session_id).eq("question_id", body.question_id);
 
+      await broadcastOverlay(SUPABASE_URL, SERVICE_KEY, session.overlay_token, "round_changed", {
+        action: "start", round_id: round.id,
+      });
+
       return new Response(JSON.stringify({ round }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -84,6 +116,11 @@ Deno.serve(async (req) => {
       const { data: round, error } = await admin.from("rounds")
         .update({ status: "closed" }).eq("id", body.round_id).select().single();
       if (error) throw error;
+
+      await broadcastOverlay(SUPABASE_URL, SERVICE_KEY, session.overlay_token, "round_changed", {
+        action: "close", round_id: round.id,
+      });
+
       return new Response(JSON.stringify({ round }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -104,8 +141,6 @@ Deno.serve(async (req) => {
         .select("*").eq("round_id", body.round_id);
 
       if (allAnswers && allAnswers.length > 0) {
-        // Update is_correct (batch via individual updates is ok for reasonable sizes;
-        // for large rooms, prefer SQL RPC. Keeping simple here.)
         const correctIds = allAnswers.filter(a => a.choice === correct).map(a => a.id);
         const wrongIds = allAnswers.filter(a => a.choice !== correct).map(a => a.id);
         if (correctIds.length > 0) {
@@ -115,7 +150,6 @@ Deno.serve(async (req) => {
           await admin.from("answers").update({ is_correct: false }).in("id", wrongIds);
         }
 
-        // Upsert leaderboard rows
         // Aggregate per viewer
         const agg = new Map<string, { display: string | null; correct: number; total: number }>();
         for (const a of allAnswers) {
@@ -126,7 +160,6 @@ Deno.serve(async (req) => {
         }
 
         for (const [handle, v] of agg.entries()) {
-          // Read current
           const { data: existing } = await admin.from("session_scores")
             .select("*").eq("session_id", round.session_id).eq("viewer_handle", handle).maybeSingle();
           if (existing) {
@@ -154,6 +187,10 @@ Deno.serve(async (req) => {
         .update({ status: "resolved", resolved_at: new Date().toISOString() })
         .eq("id", body.round_id).select().single();
       if (resErr) throw resErr;
+
+      await broadcastOverlay(SUPABASE_URL, SERVICE_KEY, session.overlay_token, "round_changed", {
+        action: "resolve", round_id: resolved.id,
+      });
 
       return new Response(JSON.stringify({ round: resolved, correct_choice: correct }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
