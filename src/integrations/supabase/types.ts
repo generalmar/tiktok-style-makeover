@@ -264,6 +264,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          auto_advance: boolean
           created_at: string
           finished_at: string | null
           id: string
@@ -275,6 +276,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_advance?: boolean
           created_at?: string
           finished_at?: string | null
           id?: string
@@ -286,6 +288,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_advance?: boolean
           created_at?: string
           finished_at?: string | null
           id?: string

@@ -1,0 +1,1 @@
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS auto_advance boolean NOT NULL DEFAULT true;

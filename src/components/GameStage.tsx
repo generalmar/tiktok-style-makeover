@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
@@ -29,6 +30,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
   const [busy, setBusy] = useState(false);
   const [seatedQs, setSeatedQs] = useState<Question[]>([]);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
+  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [revealAnswer, setRevealAnswer] = useState(false);
+  const autoAdvanceTimer = useRef<number | null>(null);
+  const lastAdvancedRound = useRef<string | null>(null);
 
   // Tick every second for countdown
   useEffect(() => {
@@ -42,7 +47,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
       .neq("status", "finished")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     setSession(data || null);
-    if (data) setDuration(data.question_duration_seconds);
+    if (data) {
+      setDuration(data.question_duration_seconds);
+      setAutoAdvance((data as any).auto_advance ?? true);
+    }
   };
 
   useEffect(() => { loadSession(); }, []);
@@ -106,6 +114,9 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, round?.status]);
 
+  // Hide reveal-answer when round changes
+  useEffect(() => { setRevealAnswer(false); }, [round?.id]);
+
   const createSession = async () => {
     if (selectedIds.size === 0) {
       toast.error("Select at least one question first");
@@ -115,7 +126,8 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     const { data: s, error } = await supabase.from("sessions").insert({
       name: `Session ${new Date().toLocaleString()}`,
       question_duration_seconds: duration,
-    }).select().single();
+      auto_advance: autoAdvance,
+    } as any).select().single();
     if (error || !s) { setBusy(false); toast.error(error?.message || "Failed"); return; }
     const rows = Array.from(selectedIds).map((qid, i) => ({
       session_id: s.id, question_id: qid, position: i,
@@ -175,6 +187,36 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     await supabase.from("sessions").update({ question_duration_seconds: v }).eq("id", session.id);
   };
 
+  const updateAutoAdvance = async (v: boolean) => {
+    setAutoAdvance(v);
+    if (!session) return;
+    await supabase.from("sessions").update({ auto_advance: v } as any).eq("id", session.id);
+  };
+
+  // Auto-advance to next question after a round resolves
+  useEffect(() => {
+    if (autoAdvanceTimer.current) {
+      window.clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
+    if (!session || !round || round.status !== "resolved") return;
+    if (!autoAdvance) return;
+    if (lastAdvancedRound.current === round.id) return;
+    const hasNext = seatedQs.some((q) => !playedIds.has(q.id));
+    if (!hasNext) return;
+    lastAdvancedRound.current = round.id;
+    autoAdvanceTimer.current = window.setTimeout(() => {
+      startNextRound();
+    }, 3000);
+    return () => {
+      if (autoAdvanceTimer.current) {
+        window.clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round?.id, round?.status, autoAdvance, session?.id, seatedQs.length, playedIds.size]);
+
   const copyOverlayLink = () => {
     if (!session) return;
     const url = `${window.location.origin}/overlay/${session.overlay_token}`;
@@ -230,6 +272,15 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
               </div>
               <Slider value={[duration]} min={10} max={60} step={5}
                 onValueChange={(v) => setDuration(v[0])} />
+              <div className="flex items-center justify-between pt-2">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Auto-advance</Label>
+                  <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                    Automatically start the next question after each round resolves.
+                  </p>
+                </div>
+                <Switch checked={autoAdvance} onCheckedChange={setAutoAdvance} />
+              </div>
             </div>
             <Button variant="cyan" size="lg" className="rounded-full px-8 w-full" onClick={createSession} disabled={busy}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : `Create session (${selectedIds.size} questions)`}
@@ -262,11 +313,13 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
                 <div className="grid grid-cols-2 gap-3">
                   {(currentQuestion.choices as any[]).map((c) => {
-                    const isCorrect = round.status === "resolved" && c.key === currentQuestion.correct_choice;
+                    const isResolvedCorrect = round.status === "resolved" && c.key === currentQuestion.correct_choice;
+                    const isLiveCorrect = round.status === "live" && revealAnswer && c.key === currentQuestion.correct_choice;
                     return (
                       <div key={c.key}
                         className={`p-4 rounded-xl border transition-all ${
-                          isCorrect ? "border-tiktok-cyan bg-tiktok-cyan/10 glow-cyan"
+                          isResolvedCorrect ? "border-tiktok-cyan bg-tiktok-cyan/10 glow-cyan"
+                            : isLiveCorrect ? "border-tiktok-cyan/60 bg-tiktok-cyan/5 border-dashed"
                             : "border-border/40 bg-muted/20"
                         }`}>
                         <div className="flex items-center gap-3">
@@ -274,11 +327,32 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
                             {c.key}
                           </span>
                           <span className="text-sm">{c.text}</span>
+                          {isLiveCorrect && (
+                            <span className="ml-auto text-[9px] uppercase tracking-wider text-tiktok-cyan font-display">Correct</span>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {round.status === "live" && (
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setRevealAnswer((v) => !v)}
+                      className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-tiktok-cyan transition-colors"
+                    >
+                      <Eye className="w-3 h-3" />
+                      {revealAnswer ? "Hide answer" : "Reveal answer (operator only)"}
+                    </button>
+                    {revealAnswer && (
+                      <span className="text-[11px] text-tiktok-cyan font-mono">
+                        Answer: <span className="font-bold">{currentQuestion.correct_choice}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {round.status === "resolved" && (
                   <p className="text-center text-sm text-tiktok-cyan">
@@ -340,6 +414,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
               )}
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Auto</span>
+                <Switch checked={autoAdvance} onCheckedChange={updateAutoAdvance} />
+              </div>
               <div className="flex items-center gap-2 min-w-[180px]">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Timer</span>
                 <Slider value={[duration]} min={10} max={60} step={5}
