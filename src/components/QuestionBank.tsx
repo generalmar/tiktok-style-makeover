@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Check, Plus, Loader2 } from "lucide-react";
+import { Trash2, Check, Plus, Loader2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import QuestionEditorModal from "./QuestionEditorModal";
 
 type DBQuestion = Database["public"]["Tables"]["questions"]["Row"];
 
@@ -19,6 +20,8 @@ interface Props {
 const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) => {
   const [questions, setQuestions] = useState<DBQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<DBQuestion | null>(null);
+  const [localKey, setLocalKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +34,7 @@ const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) =>
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, localKey]);
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("questions").delete().eq("id", id);
@@ -92,12 +95,22 @@ const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) =>
                         <Badge variant="outline" className="text-[10px] border-tiktok-cyan/40 text-tiktok-cyan">AI</Badge>
                       )}
                     </div>
-                    <button
-                      className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+                      <button
+                        className="p-1 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
+                        onClick={(e) => { e.stopPropagation(); setEditing(q); }}
+                        aria-label="Edit question"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
+                        aria-label="Delete question"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm leading-snug">{q.text}</p>
                   {selected && (
