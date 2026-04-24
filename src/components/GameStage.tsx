@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
