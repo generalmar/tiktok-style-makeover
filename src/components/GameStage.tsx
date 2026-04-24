@@ -9,6 +9,7 @@ import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye } from
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import AnswerDistribution from "./AnswerDistribution";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
