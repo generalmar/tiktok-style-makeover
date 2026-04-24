@@ -9,6 +9,7 @@ import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye } from
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import AnswerDistribution from "./AnswerDistribution";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
@@ -193,21 +194,28 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     await supabase.from("sessions").update({ auto_advance: v } as any).eq("id", session.id);
   };
 
-  // Auto-advance to next question after a round resolves
+  // Auto-advance to next question after a round resolves, or auto-end if exhausted
   useEffect(() => {
     if (autoAdvanceTimer.current) {
       window.clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
     if (!session || !round || round.status !== "resolved") return;
-    if (!autoAdvance) return;
     if (lastAdvancedRound.current === round.id) return;
     const hasNext = seatedQs.some((q) => !playedIds.has(q.id));
-    if (!hasNext) return;
     lastAdvancedRound.current = round.id;
-    autoAdvanceTimer.current = window.setTimeout(() => {
-      startNextRound();
-    }, 3000);
+
+    if (!hasNext) {
+      // All questions played — auto-end the session after a short delay
+      autoAdvanceTimer.current = window.setTimeout(() => {
+        endSession();
+        toast.success("All questions played — session ended");
+      }, 4000);
+    } else if (autoAdvance) {
+      autoAdvanceTimer.current = window.setTimeout(() => {
+        startNextRound();
+      }, 3000);
+    }
     return () => {
       if (autoAdvanceTimer.current) {
         window.clearTimeout(autoAdvanceTimer.current);
@@ -364,6 +372,16 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
               <div className="glass rounded-2xl p-8 w-full max-w-2xl text-center space-y-3">
                 <p className="text-muted-foreground text-sm">No round active. Start the next question.</p>
               </div>
+            )}
+
+            {/* Live answer distribution */}
+            {round && currentQuestion && (
+              <AnswerDistribution
+                roundId={round.id}
+                choices={currentQuestion.choices as any}
+                correctChoice={currentQuestion.correct_choice}
+                showCorrect={round.status === "resolved" || revealAnswer}
+              />
             )}
 
             {/* Leaderboard */}

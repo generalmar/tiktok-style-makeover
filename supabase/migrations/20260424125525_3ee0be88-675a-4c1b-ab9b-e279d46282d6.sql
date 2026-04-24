@@ -1,0 +1,1 @@
+ALTER TABLE public.answers REPLICA IDENTITY FULL;
