@@ -374,6 +374,16 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
               </div>
             )}
 
+            {/* Live answer distribution */}
+            {round && currentQuestion && (
+              <AnswerDistribution
+                roundId={round.id}
+                choices={currentQuestion.choices as any}
+                correctChoice={currentQuestion.correct_choice}
+                showCorrect={round.status === "resolved" || revealAnswer}
+              />
+            )}
+
             {/* Leaderboard */}
             <div className="glass rounded-2xl p-6 w-full max-w-2xl space-y-3">
               <div className="flex items-center gap-2">
