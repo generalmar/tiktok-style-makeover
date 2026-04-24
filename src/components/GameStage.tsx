@@ -91,7 +91,9 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
     const ch = supabase.channel(`session:${session.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds", filter: `session_id=eq.${session.id}` },
-        () => loadRound())
+        () => { loadRound(); loadSeated(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "session_questions", filter: `session_id=eq.${session.id}` },
+        () => loadSeated())
       .on("postgres_changes", { event: "*", schema: "public", table: "session_scores", filter: `session_id=eq.${session.id}` },
         () => loadScores())
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
