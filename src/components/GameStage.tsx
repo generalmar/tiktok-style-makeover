@@ -123,7 +123,8 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     const { data: s, error } = await supabase.from("sessions").insert({
       name: `Session ${new Date().toLocaleString()}`,
       question_duration_seconds: duration,
-    }).select().single();
+      auto_advance: autoAdvance,
+    } as any).select().single();
     if (error || !s) { setBusy(false); toast.error(error?.message || "Failed"); return; }
     const rows = Array.from(selectedIds).map((qid, i) => ({
       session_id: s.id, question_id: qid, position: i,
@@ -182,6 +183,36 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     if (!session) return;
     await supabase.from("sessions").update({ question_duration_seconds: v }).eq("id", session.id);
   };
+
+  const updateAutoAdvance = async (v: boolean) => {
+    setAutoAdvance(v);
+    if (!session) return;
+    await supabase.from("sessions").update({ auto_advance: v } as any).eq("id", session.id);
+  };
+
+  // Auto-advance to next question after a round resolves
+  useEffect(() => {
+    if (autoAdvanceTimer.current) {
+      window.clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
+    if (!session || !round || round.status !== "resolved") return;
+    if (!autoAdvance) return;
+    if (lastAdvancedRound.current === round.id) return;
+    const hasNext = seatedQs.some((q) => !playedIds.has(q.id));
+    if (!hasNext) return;
+    lastAdvancedRound.current = round.id;
+    autoAdvanceTimer.current = window.setTimeout(() => {
+      startNextRound();
+    }, 3000);
+    return () => {
+      if (autoAdvanceTimer.current) {
+        window.clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round?.id, round?.status, autoAdvance, session?.id, seatedQs.length, playedIds.size]);
 
   const copyOverlayLink = () => {
     if (!session) return;
