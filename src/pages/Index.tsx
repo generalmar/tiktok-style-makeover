@@ -19,10 +19,8 @@ const Index = () => {
   // Track active session id for LiveFeed
   useEffect(() => {
     const load = async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) { setActiveSessionId(null); return; }
       const { data } = await supabase.from("sessions").select("id")
-        .eq("owner_id", u.user.id).neq("status", "finished")
+        .neq("status", "finished")
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       setActiveSessionId(data?.id || null);
     };

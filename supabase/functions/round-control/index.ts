@@ -43,38 +43,14 @@ Deno.serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: u } = await userClient.auth.getUser();
-    const user = u?.user;
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const body = (await req.json()) as Body;
 
-    // Verify session ownership
+    // Load session (no ownership check — single shared workspace)
     const { data: session, error: sErr } = await admin
       .from("sessions").select("*").eq("id", body.session_id).single();
     if (sErr || !session) throw new Error("Session not found");
-    if (session.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     if (body.action === "start") {
       if (!body.question_id) throw new Error("question_id required");

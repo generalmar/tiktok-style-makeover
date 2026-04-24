@@ -26,13 +26,15 @@ interface OverlayState {
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/overlay-state`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+type ConnState = "connecting" | "connected" | "reconnecting";
+
 const Overlay = () => {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<OverlayState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [connState, setConnState] = useState<ConnState>("connecting");
   const lastRoundIdRef = useRef<string | null>(null);
-  const fetchStateRef = useRef<() => Promise<void>>(async () => {});
 
   // Realtime: fetch on mount, then refetch on broadcast events.
   // Light safety-net poll (every 15s) covers any missed messages or reconnects.
@@ -54,7 +56,6 @@ const Overlay = () => {
         if (alive) setError(e instanceof Error ? e.message : "Failed to load");
       }
     };
-    fetchStateRef.current = fetchState;
     fetchState();
 
     const channel = supabase
@@ -62,7 +63,25 @@ const Overlay = () => {
       .on("broadcast", { event: "round_changed" }, () => { fetchState(); })
       .on("broadcast", { event: "session_changed" }, () => { fetchState(); })
       .on("broadcast", { event: "scores_changed" }, () => { fetchState(); })
-      .subscribe();
+      .subscribe((status) => {
+        if (!alive) return;
+        if (status === "SUBSCRIBED") {
+          setConnState((prev) => {
+            // If we were reconnecting, immediately resync state
+            if (prev === "reconnecting") fetchState();
+            return "connected";
+          });
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setConnState("reconnecting");
+        }
+      });
+
+    // Browser-level reconnect signals (tab regains focus, network back online)
+    const onOnline = () => { setConnState("reconnecting"); fetchState(); };
+    const onVisible = () => { if (document.visibilityState === "visible") fetchState(); };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", () => setConnState("reconnecting"));
+    document.addEventListener("visibilitychange", onVisible);
 
     // Safety-net refresh every 15s in case of dropped messages
     const safety = setInterval(fetchState, 15000);
@@ -70,6 +89,9 @@ const Overlay = () => {
     return () => {
       alive = false;
       clearInterval(safety);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", () => setConnState("reconnecting"));
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [token]);
@@ -111,16 +133,33 @@ const Overlay = () => {
         }}
       >
         {/* Top status bar */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-5 pt-5 flex items-center justify-between">
+        <div className="absolute top-0 left-0 right-0 z-10 px-5 pt-5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/40 backdrop-blur-md border border-border/40">
             <Radio className="w-3 h-3 text-tiktok-pink animate-pulse-live" />
             <span className="text-[10px] font-display font-bold uppercase tracking-widest">Live Trivia</span>
           </div>
-          {state && (
-            <div className="px-3 py-1.5 rounded-full bg-background/40 backdrop-blur-md border border-border/40 text-[10px] font-mono text-muted-foreground">
-              {state.progress.played}/{state.progress.total}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <AnimatePresence>
+              {connState !== "connected" && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-tiktok-pink/15 border border-tiktok-pink/40 backdrop-blur-md"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-tiktok-pink animate-pulse-live" />
+                  <span className="text-[9px] font-display font-bold uppercase tracking-widest text-tiktok-pink">
+                    {connState === "connecting" ? "Connecting…" : "Reconnecting…"}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {state && (
+              <div className="px-3 py-1.5 rounded-full bg-background/40 backdrop-blur-md border border-border/40 text-[10px] font-mono text-muted-foreground">
+                {state.progress.played}/{state.progress.total}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Body */}

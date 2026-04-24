@@ -97,7 +97,7 @@ export type Database = {
           created_at: string
           difficulty: Database["public"]["Enums"]["difficulty"]
           id: string
-          owner_id: string
+          owner_id: string | null
           source: string
           text: string
           updated_at: string
@@ -109,7 +109,7 @@ export type Database = {
           created_at?: string
           difficulty?: Database["public"]["Enums"]["difficulty"]
           id?: string
-          owner_id: string
+          owner_id?: string | null
           source?: string
           text: string
           updated_at?: string
@@ -121,7 +121,7 @@ export type Database = {
           created_at?: string
           difficulty?: Database["public"]["Enums"]["difficulty"]
           id?: string
-          owner_id?: string
+          owner_id?: string | null
           source?: string
           text?: string
           updated_at?: string
@@ -269,7 +269,7 @@ export type Database = {
           id: string
           name: string
           overlay_token: string
-          owner_id: string
+          owner_id: string | null
           question_duration_seconds: number
           status: Database["public"]["Enums"]["session_status"]
           updated_at: string
@@ -280,7 +280,7 @@ export type Database = {
           id?: string
           name?: string
           overlay_token?: string
-          owner_id: string
+          owner_id?: string | null
           question_duration_seconds?: number
           status?: Database["public"]["Enums"]["session_status"]
           updated_at?: string
@@ -291,7 +291,7 @@ export type Database = {
           id?: string
           name?: string
           overlay_token?: string
-          owner_id?: string
+          owner_id?: string | null
           question_duration_seconds?: number
           status?: Database["public"]["Enums"]["session_status"]
           updated_at?: string

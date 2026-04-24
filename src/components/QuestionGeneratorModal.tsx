@@ -84,10 +84,7 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
       return;
     }
     setBusy(true);
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) { setBusy(false); return; }
     const { error } = await supabase.from("questions").insert({
-      owner_id: u.user.id,
       text: parsed.data.text,
       choices: parsed.data.choices.map((t, i) => ({ key: ["A", "B", "C", "D"][i], text: t })),
       correct_choice: parsed.data.correct,
