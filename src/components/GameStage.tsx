@@ -114,6 +114,9 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, round?.status]);
 
+  // Hide reveal-answer when round changes
+  useEffect(() => { setRevealAnswer(false); }, [round?.id]);
+
   const createSession = async () => {
     if (selectedIds.size === 0) {
       toast.error("Select at least one question first");
