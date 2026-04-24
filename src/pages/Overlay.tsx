@@ -133,16 +133,33 @@ const Overlay = () => {
         }}
       >
         {/* Top status bar */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-5 pt-5 flex items-center justify-between">
+        <div className="absolute top-0 left-0 right-0 z-10 px-5 pt-5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/40 backdrop-blur-md border border-border/40">
             <Radio className="w-3 h-3 text-tiktok-pink animate-pulse-live" />
             <span className="text-[10px] font-display font-bold uppercase tracking-widest">Live Trivia</span>
           </div>
-          {state && (
-            <div className="px-3 py-1.5 rounded-full bg-background/40 backdrop-blur-md border border-border/40 text-[10px] font-mono text-muted-foreground">
-              {state.progress.played}/{state.progress.total}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <AnimatePresence>
+              {connState !== "connected" && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-tiktok-pink/15 border border-tiktok-pink/40 backdrop-blur-md"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-tiktok-pink animate-pulse-live" />
+                  <span className="text-[9px] font-display font-bold uppercase tracking-widest text-tiktok-pink">
+                    {connState === "connecting" ? "Connecting…" : "Reconnecting…"}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {state && (
+              <div className="px-3 py-1.5 rounded-full bg-background/40 backdrop-blur-md border border-border/40 text-[10px] font-mono text-muted-foreground">
+                {state.progress.played}/{state.progress.total}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Body */}
