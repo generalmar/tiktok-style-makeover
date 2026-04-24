@@ -1,7 +1,11 @@
 // PUBLIC endpoint — accepts answers from chat (simulator or future TikTok webhook).
 // Validates round is still live, enforces first-answer-locking via UNIQUE constraint.
-import { corsHeaders } from "@supabase/supabase-js/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 interface Body {
   round_id: string;
