@@ -30,6 +30,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
   const [busy, setBusy] = useState(false);
   const [seatedQs, setSeatedQs] = useState<Question[]>([]);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
+  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [revealAnswer, setRevealAnswer] = useState(false);
+  const autoAdvanceTimer = useRef<number | null>(null);
+  const lastAdvancedRound = useRef<string | null>(null);
 
   // Tick every second for countdown
   useEffect(() => {
@@ -43,7 +47,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
       .neq("status", "finished")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     setSession(data || null);
-    if (data) setDuration(data.question_duration_seconds);
+    if (data) {
+      setDuration(data.question_duration_seconds);
+      setAutoAdvance((data as any).auto_advance ?? true);
+    }
   };
 
   useEffect(() => { loadSession(); }, []);
