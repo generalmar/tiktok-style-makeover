@@ -124,6 +124,12 @@ const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) =>
           </AnimatePresence>
         )}
       </div>
+      <QuestionEditorModal
+        question={editing}
+        open={!!editing}
+        onOpenChange={(v) => { if (!v) setEditing(null); }}
+        onSaved={() => setLocalKey((k) => k + 1)}
+      />
     </div>
   );
 };
