@@ -14,16 +14,329 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      answers: {
+        Row: {
+          choice: string
+          created_at: string
+          id: string
+          is_correct: boolean | null
+          round_id: string
+          session_id: string
+          viewer_display_name: string | null
+          viewer_handle: string
+        }
+        Insert: {
+          choice: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          round_id: string
+          session_id: string
+          viewer_display_name?: string | null
+          viewer_handle: string
+        }
+        Update: {
+          choice?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          round_id?: string
+          session_id?: string
+          viewer_display_name?: string | null
+          viewer_handle?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answers_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          category: string
+          choices: Json
+          correct_choice: string
+          created_at: string
+          difficulty: Database["public"]["Enums"]["difficulty"]
+          id: string
+          owner_id: string
+          source: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          choices: Json
+          correct_choice: string
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          id?: string
+          owner_id: string
+          source?: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          choices?: Json
+          correct_choice?: string
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          id?: string
+          owner_id?: string
+          source?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rounds: {
+        Row: {
+          closes_at: string | null
+          created_at: string
+          duration_seconds: number
+          id: string
+          question_id: string
+          resolved_at: string | null
+          session_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["round_status"]
+        }
+        Insert: {
+          closes_at?: string | null
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          question_id: string
+          resolved_at?: string | null
+          session_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["round_status"]
+        }
+        Update: {
+          closes_at?: string | null
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          question_id?: string
+          resolved_at?: string | null
+          session_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["round_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rounds_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rounds_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_questions: {
+        Row: {
+          created_at: string
+          id: string
+          played: boolean
+          position: number
+          question_id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          played?: boolean
+          position: number
+          question_id: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          played?: boolean
+          position?: number
+          question_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_scores: {
+        Row: {
+          answer_count: number
+          correct_count: number
+          id: string
+          score: number
+          session_id: string
+          updated_at: string
+          viewer_display_name: string | null
+          viewer_handle: string
+        }
+        Insert: {
+          answer_count?: number
+          correct_count?: number
+          id?: string
+          score?: number
+          session_id: string
+          updated_at?: string
+          viewer_display_name?: string | null
+          viewer_handle: string
+        }
+        Update: {
+          answer_count?: number
+          correct_count?: number
+          id?: string
+          score?: number
+          session_id?: string
+          updated_at?: string
+          viewer_display_name?: string | null
+          viewer_handle?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_scores_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          name: string
+          overlay_token: string
+          owner_id: string
+          question_duration_seconds: number
+          status: Database["public"]["Enums"]["session_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          name?: string
+          overlay_token?: string
+          owner_id: string
+          question_duration_seconds?: number
+          status?: Database["public"]["Enums"]["session_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          name?: string
+          overlay_token?: string
+          owner_id?: string
+          question_duration_seconds?: number
+          status?: Database["public"]["Enums"]["session_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "operator"
+      difficulty: "easy" | "medium" | "hard"
+      round_status: "idle" | "live" | "closed" | "resolved"
+      session_status: "idle" | "active" | "finished"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +463,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "operator"],
+      difficulty: ["easy", "medium", "hard"],
+      round_status: ["idle", "live", "closed", "resolved"],
+      session_status: ["idle", "active", "finished"],
+    },
   },
 } as const
