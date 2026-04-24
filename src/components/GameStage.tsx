@@ -91,7 +91,9 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
     const ch = supabase.channel(`session:${session.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds", filter: `session_id=eq.${session.id}` },
-        () => loadRound())
+        () => { loadRound(); loadSeated(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "session_questions", filter: `session_id=eq.${session.id}` },
+        () => loadSeated())
       .on("postgres_changes", { event: "*", schema: "public", table: "session_scores", filter: `session_id=eq.${session.id}` },
         () => loadScores())
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
@@ -143,11 +145,20 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
   const startNextRound = async () => {
     if (!session) return;
-    const next = seatedQs.find((q) => !playedIds.has(q.id));
-    if (!next) { toast.message("All questions played. End session to see leaderboard."); return; }
     setBusy(true);
+    // Re-read played state from DB to avoid stale local state
+    const { data: sq } = await supabase.from("session_questions")
+      .select("question_id, position, played")
+      .eq("session_id", session.id).order("position");
+    const next = (sq || []).find((s: any) => !s.played);
+    if (!next) {
+      setBusy(false);
+      toast.message("All questions played. Ending session...");
+      await endSession();
+      return;
+    }
     const { error } = await supabase.functions.invoke("round-control", {
-      body: { action: "start", session_id: session.id, question_id: next.id },
+      body: { action: "start", session_id: session.id, question_id: next.question_id },
     });
     setBusy(false);
     if (error) toast.error(error.message);
