@@ -1,10 +1,10 @@
 project_id = "lrgqeiphzkzweaosfext"
 
 [functions.generate-questions]
-verify_jwt = true
+verify_jwt = false
 
 [functions.round-control]
-verify_jwt = true
+verify_jwt = false
 
 [functions.submit-answer]
 verify_jwt = false
