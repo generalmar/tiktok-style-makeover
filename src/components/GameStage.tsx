@@ -194,21 +194,28 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     await supabase.from("sessions").update({ auto_advance: v } as any).eq("id", session.id);
   };
 
-  // Auto-advance to next question after a round resolves
+  // Auto-advance to next question after a round resolves, or auto-end if exhausted
   useEffect(() => {
     if (autoAdvanceTimer.current) {
       window.clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
     if (!session || !round || round.status !== "resolved") return;
-    if (!autoAdvance) return;
     if (lastAdvancedRound.current === round.id) return;
     const hasNext = seatedQs.some((q) => !playedIds.has(q.id));
-    if (!hasNext) return;
     lastAdvancedRound.current = round.id;
-    autoAdvanceTimer.current = window.setTimeout(() => {
-      startNextRound();
-    }, 3000);
+
+    if (!hasNext) {
+      // All questions played — auto-end the session after a short delay
+      autoAdvanceTimer.current = window.setTimeout(() => {
+        endSession();
+        toast.success("All questions played — session ended");
+      }, 4000);
+    } else if (autoAdvance) {
+      autoAdvanceTimer.current = window.setTimeout(() => {
+        startNextRound();
+      }, 3000);
+    }
     return () => {
       if (autoAdvanceTimer.current) {
         window.clearTimeout(autoAdvanceTimer.current);
