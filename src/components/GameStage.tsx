@@ -269,6 +269,15 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
               </div>
               <Slider value={[duration]} min={10} max={60} step={5}
                 onValueChange={(v) => setDuration(v[0])} />
+              <div className="flex items-center justify-between pt-2">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Auto-advance</Label>
+                  <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                    Automatically start the next question after each round resolves.
+                  </p>
+                </div>
+                <Switch checked={autoAdvance} onCheckedChange={setAutoAdvance} />
+              </div>
             </div>
             <Button variant="cyan" size="lg" className="rounded-full px-8 w-full" onClick={createSession} disabled={busy}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : `Create session (${selectedIds.size} questions)`}
@@ -301,11 +310,13 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
                 <div className="grid grid-cols-2 gap-3">
                   {(currentQuestion.choices as any[]).map((c) => {
-                    const isCorrect = round.status === "resolved" && c.key === currentQuestion.correct_choice;
+                    const isResolvedCorrect = round.status === "resolved" && c.key === currentQuestion.correct_choice;
+                    const isLiveCorrect = round.status === "live" && revealAnswer && c.key === currentQuestion.correct_choice;
                     return (
                       <div key={c.key}
                         className={`p-4 rounded-xl border transition-all ${
-                          isCorrect ? "border-tiktok-cyan bg-tiktok-cyan/10 glow-cyan"
+                          isResolvedCorrect ? "border-tiktok-cyan bg-tiktok-cyan/10 glow-cyan"
+                            : isLiveCorrect ? "border-tiktok-cyan/60 bg-tiktok-cyan/5 border-dashed"
                             : "border-border/40 bg-muted/20"
                         }`}>
                         <div className="flex items-center gap-3">
@@ -313,11 +324,32 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
                             {c.key}
                           </span>
                           <span className="text-sm">{c.text}</span>
+                          {isLiveCorrect && (
+                            <span className="ml-auto text-[9px] uppercase tracking-wider text-tiktok-cyan font-display">Correct</span>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {round.status === "live" && (
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setRevealAnswer((v) => !v)}
+                      className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-tiktok-cyan transition-colors"
+                    >
+                      <Eye className="w-3 h-3" />
+                      {revealAnswer ? "Hide answer" : "Reveal answer (operator only)"}
+                    </button>
+                    {revealAnswer && (
+                      <span className="text-[11px] text-tiktok-cyan font-mono">
+                        Answer: <span className="font-bold">{currentQuestion.correct_choice}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {round.status === "resolved" && (
                   <p className="text-center text-sm text-tiktok-cyan">
