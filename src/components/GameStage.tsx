@@ -411,6 +411,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
               )}
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Auto</span>
+                <Switch checked={autoAdvance} onCheckedChange={updateAutoAdvance} />
+              </div>
               <div className="flex items-center gap-2 min-w-[180px]">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Timer</span>
                 <Slider value={[duration]} min={10} max={60} step={5}
