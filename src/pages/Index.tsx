@@ -1,47 +1,67 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import NavBar from "@/components/NavBar";
 import QuestionBank from "@/components/QuestionBank";
-import type { Question } from "@/components/QuestionBank";
 import GameStage from "@/components/GameStage";
 import LiveFeed from "@/components/LiveFeed";
-
-const initialQuestions: Question[] = [
-  { id: 1, text: "What is 15% of 200?", difficulty: "easy", category: "Math", selected: false },
-  { id: 2, text: "What does HTTP stand for?", difficulty: "hard", category: "Technology", selected: false },
-  { id: 3, text: "Who painted the Mona Lisa?", difficulty: "easy", category: "Art", selected: false },
-  { id: 4, text: "What is the square root of 144?", difficulty: "easy", category: "Math", selected: false },
-  { id: 5, text: "Which planet in our solar system has the most moons?", difficulty: "medium", category: "Science", selected: false },
-  { id: 6, text: "What is the maximum length of a TikTok video as of 2023?", difficulty: "medium", category: "TikTok", selected: false },
-  { id: 7, text: "Which company originally developed the app that became TikTok?", difficulty: "medium", category: "TikTok", selected: false },
-];
+import QuestionGeneratorModal from "@/components/QuestionGeneratorModal";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
-  const [questions, setQuestions] = useState<Question[]>(initialQuestions);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [aiOpen, setAiOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  const handleToggle = (id: number) => {
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, selected: !q.selected } : q))
-    );
+  useEffect(() => {
+    document.title = "Trivia Live · Operator";
+  }, []);
+
+  // Track active session id for LiveFeed
+  useEffect(() => {
+    const load = async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { setActiveSessionId(null); return; }
+      const { data } = await supabase.from("sessions").select("id")
+        .eq("owner_id", u.user.id).neq("status", "finished")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      setActiveSessionId(data?.id || null);
+    };
+    load();
+    const ch = supabase.channel("sessions-mine")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return s;
+    });
   };
-
-  const handleDelete = (id: number) => {
-    setQuestions((prev) => prev.filter((q) => q.id !== id));
-  };
-
-  const handleReset = () => {
-    setQuestions(initialQuestions);
-  };
-
-  const selectedCount = questions.filter((q) => q.selected).length;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <NavBar />
+      <NavBar onOpenAI={() => setAiOpen(true)} />
       <div className="flex-1 flex overflow-hidden">
-        <QuestionBank questions={questions} onToggle={handleToggle} onDelete={handleDelete} />
-        <GameStage status="idle" selectedCount={selectedCount} onReset={handleReset} />
-        <LiveFeed />
+        <QuestionBank
+          selectedIds={selectedIds}
+          onToggle={toggle}
+          onOpenAI={() => setAiOpen(true)}
+          refreshKey={refreshKey}
+        />
+        <GameStage
+          selectedIds={selectedIds}
+          onClearSelection={() => setSelectedIds(new Set())}
+        />
+        <LiveFeed sessionId={activeSessionId} />
       </div>
+      <QuestionGeneratorModal
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        onCreated={() => setRefreshKey((k) => k + 1)}
+      />
     </div>
   );
 };
