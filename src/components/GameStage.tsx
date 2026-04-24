@@ -162,6 +162,14 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     }).eq("id", session.id);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
+    // Broadcast to overlay
+    const ch = supabase.channel(`overlay:${session.overlay_token}`);
+    await new Promise<void>((resolve) => {
+      ch.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); });
+      setTimeout(resolve, 1000);
+    });
+    await ch.send({ type: "broadcast", event: "session_changed", payload: { action: "end" } });
+    await supabase.removeChannel(ch);
     toast.success("Session ended");
     setSession(null);
   };

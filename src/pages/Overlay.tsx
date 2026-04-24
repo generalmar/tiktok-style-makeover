@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Radio, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Choice { key: string; text: string }
 interface OverlayState {
@@ -31,8 +32,10 @@ const Overlay = () => {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const lastRoundIdRef = useRef<string | null>(null);
+  const fetchStateRef = useRef<() => Promise<void>>(async () => {});
 
-  // Poll every 1s
+  // Realtime: fetch on mount, then refetch on broadcast events.
+  // Light safety-net poll (every 15s) covers any missed messages or reconnects.
   useEffect(() => {
     if (!token) return;
     let alive = true;
@@ -51,9 +54,24 @@ const Overlay = () => {
         if (alive) setError(e instanceof Error ? e.message : "Failed to load");
       }
     };
+    fetchStateRef.current = fetchState;
     fetchState();
-    const id = setInterval(fetchState, 1000);
-    return () => { alive = false; clearInterval(id); };
+
+    const channel = supabase
+      .channel(`overlay:${token}`, { config: { broadcast: { self: false } } })
+      .on("broadcast", { event: "round_changed" }, () => { fetchState(); })
+      .on("broadcast", { event: "session_changed" }, () => { fetchState(); })
+      .on("broadcast", { event: "scores_changed" }, () => { fetchState(); })
+      .subscribe();
+
+    // Safety-net refresh every 15s in case of dropped messages
+    const safety = setInterval(fetchState, 15000);
+
+    return () => {
+      alive = false;
+      clearInterval(safety);
+      supabase.removeChannel(channel);
+    };
   }, [token]);
 
   useEffect(() => {
