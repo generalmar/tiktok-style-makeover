@@ -36,12 +36,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     return () => clearInterval(t);
   }, []);
 
-  // Load active session for this user (most recent non-finished)
+  // Load active session (most recent non-finished)
   const loadSession = async () => {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
     const { data } = await supabase.from("sessions").select("*")
-      .eq("owner_id", u.user.id).neq("status", "finished")
+      .neq("status", "finished")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     setSession(data || null);
     if (data) setDuration(data.question_duration_seconds);
@@ -114,10 +112,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
       return;
     }
     setBusy(true);
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) { setBusy(false); return; }
     const { data: s, error } = await supabase.from("sessions").insert({
-      owner_id: u.user.id,
       name: `Session ${new Date().toLocaleString()}`,
       question_duration_seconds: duration,
     }).select().single();
