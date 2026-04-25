@@ -80,16 +80,17 @@ export const AccountProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteAccount = async (id: string) => {
     // Cascade: delete answers, scores, rounds, session_questions, sessions, questions for this account
-    const { data: sessions } = await supabase.from("sessions").select("id").eq("account_id" as any, id);
+    const sb = supabase as any;
+    const { data: sessions } = await sb.from("sessions").select("id").eq("account_id", id);
     const sessionIds = (sessions || []).map((s: any) => s.id);
     if (sessionIds.length > 0) {
-      await supabase.from("answers").delete().in("session_id", sessionIds);
-      await supabase.from("session_scores").delete().in("session_id", sessionIds);
-      await supabase.from("rounds").delete().in("session_id", sessionIds);
-      await supabase.from("session_questions").delete().in("session_id", sessionIds);
-      await supabase.from("sessions").delete().in("id", sessionIds);
+      await sb.from("answers").delete().in("session_id", sessionIds);
+      await sb.from("session_scores").delete().in("session_id", sessionIds);
+      await sb.from("rounds").delete().in("session_id", sessionIds);
+      await sb.from("session_questions").delete().in("session_id", sessionIds);
+      await sb.from("sessions").delete().in("id", sessionIds);
     }
-    await supabase.from("questions").delete().eq("account_id" as any, id);
+    await sb.from("questions").delete().eq("account_id", id);
 
     const { error } = await supabase.from("accounts" as any).delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
