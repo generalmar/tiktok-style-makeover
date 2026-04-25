@@ -19,9 +19,10 @@ type SessionQueueItem = Pick<Database["public"]["Tables"]["session_questions"]["
 interface Props {
   selectedIds: Set<string>;
   onClearSelection: () => void;
+  onActiveQuestionChange?: (questionId: string | null) => void;
 }
 
-const GameStage = ({ selectedIds, onClearSelection }: Props) => {
+const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Props) => {
   const [session, setSession] = useState<Session | null>(null);
   const [round, setRound] = useState<Round | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -115,6 +116,13 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     return Math.max(0, Math.ceil((new Date(round.closes_at).getTime() - now) / 1000));
   }, [round, now]);
 
+  const totalQuestions = sessionQueue.length;
+  const hasNextQuestion = sessionQueue.some((item) => !item.played);
+
+  useEffect(() => {
+    onActiveQuestionChange?.(round?.status !== "resolved" ? currentQuestion?.id ?? null : null);
+  }, [round?.status, currentQuestion?.id, onActiveQuestionChange]);
+
   // Auto-resolve when timer hits 0
   useEffect(() => {
     if (round?.status === "live" && remaining === 0 && round.closes_at) {
@@ -167,6 +175,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     const { error } = await supabase.functions.invoke("round-control", {
       body: { action: "start", session_id: session.id, question_id: next.question_id },
     });
+    await Promise.all([
+      loadRoundForSession(session.id),
+      loadQueueForSession(session.id),
+    ]);
     setBusy(false);
     if (error) toast.error(error.message);
   };
@@ -176,6 +188,11 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     const { error } = await supabase.functions.invoke("round-control", {
       body: { action: "resolve", session_id: session!.id, round_id: roundId },
     });
+    await Promise.all([
+      loadRoundForSession(session!.id),
+      loadQueueForSession(session!.id),
+      loadScoresForSession(session!.id),
+    ]);
     setBusy(false);
     if (error) toast.error(error.message);
   };
@@ -220,10 +237,9 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     }
     if (!session || !round || round.status !== "resolved") return;
     if (lastAdvancedRound.current === round.id) return;
-    const hasNext = seatedQs.some((q) => !playedIds.has(q.id));
     lastAdvancedRound.current = round.id;
 
-    if (!hasNext) {
+    if (!hasNextQuestion) {
       // All questions played — auto-end the session after a short delay
       autoAdvanceTimer.current = window.setTimeout(() => {
         endSession();
@@ -241,7 +257,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round?.id, round?.status, autoAdvance, session?.id, seatedQs.length, playedIds.size]);
+  }, [round?.id, round?.status, autoAdvance, session?.id, hasNextQuestion]);
 
   const copyOverlayLink = () => {
     if (!session) return;
@@ -266,7 +282,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
           <span className="text-xs font-display font-semibold uppercase tracking-widest text-muted-foreground">{status}</span>
           {session && (
             <span className="text-xs text-muted-foreground">
-              · {playedIds.size}/{seatedQs.length} played
+              · {playedIds.size}/{totalQuestions} played
             </span>
           )}
         </div>
@@ -438,7 +454,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
             <div className="flex items-center gap-2">
               <Button variant="cyan" size="sm" className="rounded-full gap-2"
                 onClick={startNextRound}
-                disabled={busy || (round?.status === "live")}>
+                disabled={busy || round?.status === "live" || (!hasNextQuestion && round?.status === "resolved")}>
                 <SkipForward className="w-3.5 h-3.5" />
                 {round && round.status !== "resolved" ? "Next question" : "Start next"}
               </Button>
