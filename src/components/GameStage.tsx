@@ -46,9 +46,11 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     return () => clearInterval(t);
   }, []);
 
-  // Load active session (most recent non-finished)
+  // Load active session (most recent non-finished) for current account
   const loadSession = async () => {
-    const { data } = await supabase.from("sessions").select("*")
+    if (!currentAccount) { setSession(null); return; }
+    const { data } = await (supabase.from("sessions").select("*") as any)
+      .eq("account_id", currentAccount.id)
       .neq("status", "finished")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     setSession(data || null);
@@ -58,7 +60,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     }
   };
 
-  useEffect(() => { loadSession(); }, []);
+  useEffect(() => { loadSession(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [currentAccount?.id]);
 
   const loadRoundForSession = async (sessionId: string) => {
     const { data: r } = await supabase.from("rounds").select("*")
