@@ -42,6 +42,7 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
 
   const handleAI = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!currentAccount) { toast.error("Select or create an account first"); return; }
     const fd = new FormData(e.currentTarget);
     const parsed = aiSchema.safeParse({
       topic: fd.get("topic"),
@@ -55,7 +56,7 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
     }
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("generate-questions", {
-      body: parsed.data,
+      body: { ...parsed.data, account_id: currentAccount.id },
     });
     setBusy(false);
     if (error) {
