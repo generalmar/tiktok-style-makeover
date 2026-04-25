@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       answers: {
         Row: {
           choice: string
@@ -91,6 +112,7 @@ export type Database = {
       }
       questions: {
         Row: {
+          account_id: string | null
           category: string
           choices: Json
           correct_choice: string
@@ -103,6 +125,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           category?: string
           choices: Json
           correct_choice: string
@@ -115,6 +138,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           category?: string
           choices?: Json
           correct_choice?: string
@@ -264,6 +288,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          account_id: string | null
           auto_advance: boolean
           created_at: string
           finished_at: string | null
@@ -276,6 +301,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           auto_advance?: boolean
           created_at?: string
           finished_at?: string | null
@@ -288,6 +314,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           auto_advance?: boolean
           created_at?: string
           finished_at?: string | null

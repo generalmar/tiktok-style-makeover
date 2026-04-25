@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import AnswerDistribution from "./AnswerDistribution";
+import MiniLeaderboard from "./MiniLeaderboard";
+import { useAccount } from "@/contexts/AccountContext";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
@@ -23,6 +25,7 @@ interface Props {
 }
 
 const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Props) => {
+  const { currentAccount } = useAccount();
   const [session, setSession] = useState<Session | null>(null);
   const [round, setRound] = useState<Round | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -43,9 +46,11 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     return () => clearInterval(t);
   }, []);
 
-  // Load active session (most recent non-finished)
+  // Load active session (most recent non-finished) for current account
   const loadSession = async () => {
-    const { data } = await supabase.from("sessions").select("*")
+    if (!currentAccount) { setSession(null); return; }
+    const { data } = await (supabase.from("sessions").select("*") as any)
+      .eq("account_id", currentAccount.id)
       .neq("status", "finished")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     setSession(data || null);
@@ -55,7 +60,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     }
   };
 
-  useEffect(() => { loadSession(); }, []);
+  useEffect(() => { loadSession(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [currentAccount?.id]);
 
   const loadRoundForSession = async (sessionId: string) => {
     const { data: r } = await supabase.from("rounds").select("*")
@@ -140,11 +145,16 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
       toast.error("Select at least one question first");
       return;
     }
+    if (!currentAccount) {
+      toast.error("Select or create an account first");
+      return;
+    }
     setBusy(true);
     const { data: s, error } = await supabase.from("sessions").insert({
       name: `Session ${new Date().toLocaleString()}`,
       question_duration_seconds: duration,
       auto_advance: autoAdvance,
+      account_id: currentAccount.id,
     } as any).select().single();
     if (error || !s) { setBusy(false); toast.error(error?.message || "Failed"); return; }
     const rows = Array.from(selectedIds).map((qid, i) => ({
@@ -417,6 +427,14 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
                 showCorrect={round.status === "resolved" || revealAnswer}
               />
             )}
+
+            {/* Real-time top 3 (provisional + persisted) */}
+            <MiniLeaderboard
+              sessionId={session.id}
+              roundId={round?.id ?? null}
+              correctChoice={currentQuestion?.correct_choice ?? null}
+              roundStatus={round?.status ?? null}
+            />
 
             {/* Leaderboard */}
             <div className="glass rounded-2xl p-6 w-full max-w-2xl space-y-3">
