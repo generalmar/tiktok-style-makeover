@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import QuestionEditorModal from "./QuestionEditorModal";
+import { useAccount } from "@/contexts/AccountContext";
 
 type DBQuestion = Database["public"]["Tables"]["questions"]["Row"];
 
@@ -19,23 +20,28 @@ interface Props {
 }
 
 const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey, activeQuestionId }: Props) => {
+  const { currentAccount } = useAccount();
   const [questions, setQuestions] = useState<DBQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<DBQuestion | null>(null);
   const [localKey, setLocalKey] = useState(0);
 
   useEffect(() => {
+    if (!currentAccount) { setQuestions([]); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
-    supabase.from("questions").select("*").order("created_at", { ascending: false })
-      .then(({ data, error }) => {
+    (supabase.from("questions").select("*") as any)
+      .eq("account_id", currentAccount.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: any) => {
         if (cancelled) return;
         if (error) toast.error(error.message);
         else setQuestions(data || []);
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [refreshKey, localKey]);
+  }, [refreshKey, localKey, currentAccount?.id]);
+
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("questions").delete().eq("id", id);
