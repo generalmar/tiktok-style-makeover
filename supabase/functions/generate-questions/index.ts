@@ -10,6 +10,7 @@ interface GenerateBody {
   count: number;
   difficulty: "easy" | "medium" | "hard";
   category?: string;
+  account_id?: string | null;
 }
 
 const SYSTEM_PROMPT = `You generate multiple-choice trivia questions for a TikTok Live game.
