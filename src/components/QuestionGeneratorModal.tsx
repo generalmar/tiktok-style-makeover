@@ -33,6 +33,7 @@ const aiSchema = z.object({
 });
 
 const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
+  const { currentAccount } = useAccount();
   const [mode, setMode] = useState<"ai" | "manual">("ai");
   const [busy, setBusy] = useState(false);
 
