@@ -74,6 +74,7 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
 
   const handleManual = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!currentAccount) { toast.error("Select or create an account first"); return; }
     const fd = new FormData(e.currentTarget);
     const parsed = manualSchema.safeParse({
       text: fd.get("text"),
@@ -94,7 +95,8 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
       category: parsed.data.category,
       difficulty: parsed.data.difficulty,
       source: "manual",
-    });
+      account_id: currentAccount.id,
+    } as any);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Question added");
