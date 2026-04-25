@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -15,6 +14,7 @@ type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
 type Question = Database["public"]["Tables"]["questions"]["Row"];
 type Score = Database["public"]["Tables"]["session_scores"]["Row"];
+type SessionQueueItem = Pick<Database["public"]["Tables"]["session_questions"]["Row"], "question_id" | "position" | "played">;
 
 interface Props {
   selectedIds: Set<string>;
@@ -29,7 +29,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
   const [now, setNow] = useState<number>(Date.now());
   const [duration, setDuration] = useState(25);
   const [busy, setBusy] = useState(false);
-  const [seatedQs, setSeatedQs] = useState<Question[]>([]);
+  const [sessionQueue, setSessionQueue] = useState<SessionQueueItem[]>([]);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [revealAnswer, setRevealAnswer] = useState(false);
@@ -56,46 +56,53 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
   useEffect(() => { loadSession(); }, []);
 
+  const loadRoundForSession = async (sessionId: string) => {
+    const { data: r } = await supabase.from("rounds").select("*")
+      .eq("session_id", sessionId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    setRound(r || null);
+    if (r) {
+      const { data: q } = await supabase.from("questions").select("*").eq("id", r.question_id).maybeSingle();
+      setCurrentQuestion(q || null);
+    } else {
+      setCurrentQuestion(null);
+    }
+  };
+
+  const loadScoresForSession = async (sessionId: string) => {
+    const { data } = await supabase.from("session_scores").select("*")
+      .eq("session_id", sessionId).order("score", { ascending: false }).limit(20);
+    setScores(data || []);
+  };
+
+  const loadQueueForSession = async (sessionId: string) => {
+    const { data, error } = await supabase.from("session_questions")
+      .select("question_id, position, played")
+      .eq("session_id", sessionId)
+      .order("position");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const queue = (data || []) as SessionQueueItem[];
+    setSessionQueue(queue);
+    setPlayedIds(new Set(queue.filter((item) => item.played).map((item) => item.question_id)));
+  };
+
   // Subscribe to session updates + load rounds/scores
   useEffect(() => {
-    if (!session) { setRound(null); setCurrentQuestion(null); setScores([]); setSeatedQs([]); setPlayedIds(new Set()); return; }
+    if (!session) { setRound(null); setCurrentQuestion(null); setScores([]); setSessionQueue([]); setPlayedIds(new Set()); return; }
 
-    // Load latest live/closed round
-    const loadRound = async () => {
-      const { data: r } = await supabase.from("rounds").select("*")
-        .eq("session_id", session.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-      setRound(r || null);
-      if (r) {
-        const { data: q } = await supabase.from("questions").select("*").eq("id", r.question_id).maybeSingle();
-        setCurrentQuestion(q || null);
-      } else {
-        setCurrentQuestion(null);
-      }
-    };
-
-    const loadScores = async () => {
-      const { data } = await supabase.from("session_scores").select("*")
-        .eq("session_id", session.id).order("score", { ascending: false }).limit(20);
-      setScores(data || []);
-    };
-
-    const loadSeated = async () => {
-      const { data: sq } = await supabase.from("session_questions").select("*, questions(*)")
-        .eq("session_id", session.id).order("position");
-      const qs = (sq || []).map((s: any) => s.questions).filter(Boolean) as Question[];
-      setSeatedQs(qs);
-      setPlayedIds(new Set((sq || []).filter((s: any) => s.played).map((s: any) => s.question_id)));
-    };
-
-    loadRound(); loadScores(); loadSeated();
+    loadRoundForSession(session.id);
+    loadScoresForSession(session.id);
+    loadQueueForSession(session.id);
 
     const ch = supabase.channel(`session:${session.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds", filter: `session_id=eq.${session.id}` },
-        () => { loadRound(); loadSeated(); })
+        () => { loadRoundForSession(session.id); loadQueueForSession(session.id); })
       .on("postgres_changes", { event: "*", schema: "public", table: "session_questions", filter: `session_id=eq.${session.id}` },
-        () => loadSeated())
+        () => loadQueueForSession(session.id))
       .on("postgres_changes", { event: "*", schema: "public", table: "session_scores", filter: `session_id=eq.${session.id}` },
-        () => loadScores())
+        () => loadScoresForSession(session.id))
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
         (payload) => setSession(payload.new as Session))
       .subscribe();
