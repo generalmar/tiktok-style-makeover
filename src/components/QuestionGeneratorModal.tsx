@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { z } from "zod";
 import { Sparkles, Plus } from "lucide-react";
+import { useAccount } from "@/contexts/AccountContext";
 
 interface Props {
   open: boolean;
