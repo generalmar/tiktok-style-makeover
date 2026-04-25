@@ -25,6 +25,7 @@ interface Props {
 }
 
 const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Props) => {
+  const { currentAccount } = useAccount();
   const [session, setSession] = useState<Session | null>(null);
   const [round, setRound] = useState<Round | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
