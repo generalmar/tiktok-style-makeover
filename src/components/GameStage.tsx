@@ -428,6 +428,14 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
               />
             )}
 
+            {/* Real-time top 3 (provisional + persisted) */}
+            <MiniLeaderboard
+              sessionId={session.id}
+              roundId={round?.id ?? null}
+              correctChoice={currentQuestion?.correct_choice ?? null}
+              roundStatus={round?.status ?? null}
+            />
+
             {/* Leaderboard */}
             <div className="glass rounded-2xl p-6 w-full max-w-2xl space-y-3">
               <div className="flex items-center gap-2">
