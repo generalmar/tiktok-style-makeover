@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AccountSwitcher from "./AccountSwitcher";
 
 interface Props {
   onOpenAI: () => void;
@@ -20,6 +21,7 @@ const NavBar = ({ onOpenAI }: Props) => {
       </div>
 
       <div className="flex items-center gap-3">
+        <AccountSwitcher />
         <Button variant="glass" size="sm" className="gap-1.5" onClick={onOpenAI}>
           <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span className="text-xs font-semibold uppercase tracking-wide">AI Generator</span>
