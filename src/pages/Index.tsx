@@ -11,6 +11,7 @@ const Index = () => {
   const [aiOpen, setAiOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Trivia Live · Operator";
@@ -48,10 +49,12 @@ const Index = () => {
           onToggle={toggle}
           onOpenAI={() => setAiOpen(true)}
           refreshKey={refreshKey}
+          activeQuestionId={activeQuestionId}
         />
         <GameStage
           selectedIds={selectedIds}
           onClearSelection={() => setSelectedIds(new Set())}
+          onActiveQuestionChange={setActiveQuestionId}
         />
         <LiveFeed sessionId={activeSessionId} />
       </div>
