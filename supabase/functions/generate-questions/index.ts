@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
     const generated: any[] = args.questions || [];
 
     // Insert into DB
+    const accountId = body.account_id || null;
     const rows = generated.map((q) => ({
       text: q.text,
       choices: q.choices,
@@ -122,6 +123,7 @@ Deno.serve(async (req) => {
       difficulty: q.difficulty || difficulty,
       category: q.category || category,
       source: "ai",
+      account_id: accountId,
     }));
 
     const { data: inserted, error } = await supabase.from("questions").insert(rows).select();
