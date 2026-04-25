@@ -15,9 +15,10 @@ interface Props {
   onToggle: (id: string) => void;
   onOpenAI: () => void;
   refreshKey: number;
+  activeQuestionId?: string | null;
 }
 
-const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) => {
+const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey, activeQuestionId }: Props) => {
   const [questions, setQuestions] = useState<DBQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<DBQuestion | null>(null);
@@ -73,6 +74,7 @@ const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) =>
           <AnimatePresence>
             {questions.map((q, i) => {
               const selected = selectedIds.has(q.id);
+              const active = activeQuestionId === q.id;
               return (
                 <motion.div
                   key={q.id}
@@ -80,7 +82,9 @@ const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) =>
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   className={`group relative p-3 rounded-lg border transition-all cursor-pointer ${
-                    selected
+                    active
+                      ? "border-tiktok-pink/60 bg-tiktok-pink/10 glow-pink"
+                      : selected
                       ? "border-primary/50 bg-primary/5 glow-cyan"
                       : "border-border/30 bg-muted/20 hover:border-border hover:bg-muted/40"
                   }`}
@@ -91,6 +95,9 @@ const QuestionBank = ({ selectedIds, onToggle, onOpenAI, refreshKey }: Props) =>
                       <span className="text-[10px] text-muted-foreground font-mono">Q{i + 1}</span>
                       <Badge variant={q.difficulty as "easy" | "medium" | "hard"}>{q.difficulty}</Badge>
                       <Badge variant="outline" className="text-[10px]">{q.category}</Badge>
+                      {active && (
+                        <Badge variant="outline" className="text-[10px] border-tiktok-pink/40 text-tiktok-pink">Live</Badge>
+                      )}
                       {q.source === "ai" && (
                         <Badge variant="outline" className="text-[10px] border-tiktok-cyan/40 text-tiktok-cyan">AI</Badge>
                       )}

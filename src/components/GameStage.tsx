@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -15,13 +14,15 @@ type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
 type Question = Database["public"]["Tables"]["questions"]["Row"];
 type Score = Database["public"]["Tables"]["session_scores"]["Row"];
+type SessionQueueItem = Pick<Database["public"]["Tables"]["session_questions"]["Row"], "question_id" | "position" | "played">;
 
 interface Props {
   selectedIds: Set<string>;
   onClearSelection: () => void;
+  onActiveQuestionChange?: (questionId: string | null) => void;
 }
 
-const GameStage = ({ selectedIds, onClearSelection }: Props) => {
+const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Props) => {
   const [session, setSession] = useState<Session | null>(null);
   const [round, setRound] = useState<Round | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -29,7 +30,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
   const [now, setNow] = useState<number>(Date.now());
   const [duration, setDuration] = useState(25);
   const [busy, setBusy] = useState(false);
-  const [seatedQs, setSeatedQs] = useState<Question[]>([]);
+  const [sessionQueue, setSessionQueue] = useState<SessionQueueItem[]>([]);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [revealAnswer, setRevealAnswer] = useState(false);
@@ -56,46 +57,53 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
 
   useEffect(() => { loadSession(); }, []);
 
+  const loadRoundForSession = async (sessionId: string) => {
+    const { data: r } = await supabase.from("rounds").select("*")
+      .eq("session_id", sessionId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    setRound(r || null);
+    if (r) {
+      const { data: q } = await supabase.from("questions").select("*").eq("id", r.question_id).maybeSingle();
+      setCurrentQuestion(q || null);
+    } else {
+      setCurrentQuestion(null);
+    }
+  };
+
+  const loadScoresForSession = async (sessionId: string) => {
+    const { data } = await supabase.from("session_scores").select("*")
+      .eq("session_id", sessionId).order("score", { ascending: false }).limit(20);
+    setScores(data || []);
+  };
+
+  const loadQueueForSession = async (sessionId: string) => {
+    const { data, error } = await supabase.from("session_questions")
+      .select("question_id, position, played")
+      .eq("session_id", sessionId)
+      .order("position");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const queue = (data || []) as SessionQueueItem[];
+    setSessionQueue(queue);
+    setPlayedIds(new Set(queue.filter((item) => item.played).map((item) => item.question_id)));
+  };
+
   // Subscribe to session updates + load rounds/scores
   useEffect(() => {
-    if (!session) { setRound(null); setCurrentQuestion(null); setScores([]); setSeatedQs([]); setPlayedIds(new Set()); return; }
+    if (!session) { setRound(null); setCurrentQuestion(null); setScores([]); setSessionQueue([]); setPlayedIds(new Set()); return; }
 
-    // Load latest live/closed round
-    const loadRound = async () => {
-      const { data: r } = await supabase.from("rounds").select("*")
-        .eq("session_id", session.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-      setRound(r || null);
-      if (r) {
-        const { data: q } = await supabase.from("questions").select("*").eq("id", r.question_id).maybeSingle();
-        setCurrentQuestion(q || null);
-      } else {
-        setCurrentQuestion(null);
-      }
-    };
-
-    const loadScores = async () => {
-      const { data } = await supabase.from("session_scores").select("*")
-        .eq("session_id", session.id).order("score", { ascending: false }).limit(20);
-      setScores(data || []);
-    };
-
-    const loadSeated = async () => {
-      const { data: sq } = await supabase.from("session_questions").select("*, questions(*)")
-        .eq("session_id", session.id).order("position");
-      const qs = (sq || []).map((s: any) => s.questions).filter(Boolean) as Question[];
-      setSeatedQs(qs);
-      setPlayedIds(new Set((sq || []).filter((s: any) => s.played).map((s: any) => s.question_id)));
-    };
-
-    loadRound(); loadScores(); loadSeated();
+    loadRoundForSession(session.id);
+    loadScoresForSession(session.id);
+    loadQueueForSession(session.id);
 
     const ch = supabase.channel(`session:${session.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds", filter: `session_id=eq.${session.id}` },
-        () => { loadRound(); loadSeated(); })
+        () => { loadRoundForSession(session.id); loadQueueForSession(session.id); })
       .on("postgres_changes", { event: "*", schema: "public", table: "session_questions", filter: `session_id=eq.${session.id}` },
-        () => loadSeated())
+        () => loadQueueForSession(session.id))
       .on("postgres_changes", { event: "*", schema: "public", table: "session_scores", filter: `session_id=eq.${session.id}` },
-        () => loadScores())
+        () => loadScoresForSession(session.id))
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
         (payload) => setSession(payload.new as Session))
       .subscribe();
@@ -107,6 +115,13 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     if (!round || !round.closes_at || round.status !== "live") return 0;
     return Math.max(0, Math.ceil((new Date(round.closes_at).getTime() - now) / 1000));
   }, [round, now]);
+
+  const totalQuestions = sessionQueue.length;
+  const hasNextQuestion = sessionQueue.some((item) => !item.played);
+
+  useEffect(() => {
+    onActiveQuestionChange?.(round?.status !== "resolved" ? currentQuestion?.id ?? null : null);
+  }, [round?.status, currentQuestion?.id, onActiveQuestionChange]);
 
   // Auto-resolve when timer hits 0
   useEffect(() => {
@@ -160,6 +175,10 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     const { error } = await supabase.functions.invoke("round-control", {
       body: { action: "start", session_id: session.id, question_id: next.question_id },
     });
+    await Promise.all([
+      loadRoundForSession(session.id),
+      loadQueueForSession(session.id),
+    ]);
     setBusy(false);
     if (error) toast.error(error.message);
   };
@@ -169,6 +188,11 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     const { error } = await supabase.functions.invoke("round-control", {
       body: { action: "resolve", session_id: session!.id, round_id: roundId },
     });
+    await Promise.all([
+      loadRoundForSession(session!.id),
+      loadQueueForSession(session!.id),
+      loadScoresForSession(session!.id),
+    ]);
     setBusy(false);
     if (error) toast.error(error.message);
   };
@@ -213,10 +237,9 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
     }
     if (!session || !round || round.status !== "resolved") return;
     if (lastAdvancedRound.current === round.id) return;
-    const hasNext = seatedQs.some((q) => !playedIds.has(q.id));
     lastAdvancedRound.current = round.id;
 
-    if (!hasNext) {
+    if (!hasNextQuestion) {
       // All questions played — auto-end the session after a short delay
       autoAdvanceTimer.current = window.setTimeout(() => {
         endSession();
@@ -234,7 +257,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round?.id, round?.status, autoAdvance, session?.id, seatedQs.length, playedIds.size]);
+  }, [round?.id, round?.status, autoAdvance, session?.id, hasNextQuestion]);
 
   const copyOverlayLink = () => {
     if (!session) return;
@@ -259,7 +282,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
           <span className="text-xs font-display font-semibold uppercase tracking-widest text-muted-foreground">{status}</span>
           {session && (
             <span className="text-xs text-muted-foreground">
-              · {playedIds.size}/{seatedQs.length} played
+              · {playedIds.size}/{totalQuestions} played
             </span>
           )}
         </div>
@@ -431,7 +454,7 @@ const GameStage = ({ selectedIds, onClearSelection }: Props) => {
             <div className="flex items-center gap-2">
               <Button variant="cyan" size="sm" className="rounded-full gap-2"
                 onClick={startNextRound}
-                disabled={busy || (round?.status === "live")}>
+                disabled={busy || round?.status === "live" || (!hasNextQuestion && round?.status === "resolved")}>
                 <SkipForward className="w-3.5 h-3.5" />
                 {round && round.status !== "resolved" ? "Next question" : "Start next"}
               </Button>
