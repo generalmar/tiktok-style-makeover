@@ -145,11 +145,16 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
       toast.error("Select at least one question first");
       return;
     }
+    if (!currentAccount) {
+      toast.error("Select or create an account first");
+      return;
+    }
     setBusy(true);
     const { data: s, error } = await supabase.from("sessions").insert({
       name: `Session ${new Date().toLocaleString()}`,
       question_duration_seconds: duration,
       auto_advance: autoAdvance,
+      account_id: currentAccount.id,
     } as any).select().single();
     if (error || !s) { setBusy(false); toast.error(error?.message || "Failed"); return; }
     const rows = Array.from(selectedIds).map((qid, i) => ({
