@@ -219,10 +219,17 @@ const Overlay = () => {
                     {round.question.category}
                   </span>
                   {round.status === "live" && (
-                    <div className="flex items-center gap-1.5 text-tiktok-cyan">
-                      <Clock className="w-3 h-3" />
-                      <span className="text-lg font-display font-bold tabular-nums">{remaining}</span>
-                    </div>
+                    isReading ? (
+                      <div className="flex items-center gap-1.5 text-tiktok-pink">
+                        <Volume2 className="w-3 h-3 animate-pulse" />
+                        <span className="text-[10px] font-display font-bold uppercase tracking-widest">Reading…</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-tiktok-cyan">
+                        <Clock className="w-3 h-3" />
+                        <span className="text-lg font-display font-bold tabular-nums">{remaining}</span>
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -230,7 +237,11 @@ const Overlay = () => {
                 {round.status === "live" && (
                   <div className="h-1 bg-muted/40 rounded-full overflow-hidden mb-4">
                     <div
-                      className="h-full bg-gradient-to-r from-tiktok-cyan to-tiktok-pink transition-[width] duration-300 ease-linear"
+                      className={
+                        isReading
+                          ? "h-full bg-gradient-to-r from-tiktok-pink to-tiktok-cyan animate-pulse"
+                          : "h-full bg-gradient-to-r from-tiktok-cyan to-tiktok-pink transition-[width] duration-300 ease-linear"
+                      }
                       style={{ width: `${timerPct}%` }}
                     />
                   </div>
