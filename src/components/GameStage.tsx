@@ -149,14 +149,13 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     onActiveQuestionChange?.(round?.status !== "resolved" ? currentQuestion?.id ?? null : null);
   }, [round?.status, currentQuestion?.id, onActiveQuestionChange]);
 
-  // Auto-resolve when timer hits 0
+  // Auto-resolve when timer hits 0 (don't fire during the reading phase)
   useEffect(() => {
-    if (round?.status === "live" && remaining === 0 && round.closes_at) {
-      // only fire once
+    if (round?.status === "live" && !isReading && remaining === 0 && round.closes_at) {
       handleResolve(round.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, round?.status]);
+  }, [remaining, round?.status, isReading]);
 
   // Hide reveal-answer when round changes
   useEffect(() => { setRevealAnswer(false); }, [round?.id]);
@@ -176,6 +175,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
       question_duration_seconds: duration,
       auto_advance: autoAdvance,
       account_id: currentAccount.id,
+      tts_voice_id: voiceId,
     } as any).select().single();
     if (error || !s) { setBusy(false); toast.error(error?.message || "Failed"); return; }
     const rows = Array.from(selectedIds).map((qid, i) => ({
@@ -258,6 +258,12 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     setAutoAdvance(v);
     if (!session) return;
     await supabase.from("sessions").update({ auto_advance: v } as any).eq("id", session.id);
+  };
+
+  const updateVoice = async (v: string) => {
+    setVoiceId(v);
+    if (!session) return;
+    await supabase.from("sessions").update({ tts_voice_id: v } as any).eq("id", session.id);
   };
 
   // Auto-advance to next question after a round resolves, or auto-end if exhausted
