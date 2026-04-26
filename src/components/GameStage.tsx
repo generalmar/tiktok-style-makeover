@@ -318,9 +318,14 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
           }`} />
           <span className="text-xs font-display font-semibold uppercase tracking-widest text-muted-foreground">{status}</span>
           {session && (
-            <span className="text-xs text-muted-foreground">
-              · {playedIds.size}/{totalQuestions} played
-            </span>
+            <>
+              <span className="text-xs text-muted-foreground">
+                · {playedIds.size}/{totalQuestions} played
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                · <Volume2 className="w-3 h-3" /> {getVoiceName(voiceId)}
+              </span>
+            </>
           )}
         </div>
         {session && (
