@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import AnswerDistribution from "./AnswerDistribution";
 import MiniLeaderboard from "./MiniLeaderboard";
 import { useAccount } from "@/contexts/AccountContext";
+import { VOICES, DEFAULT_VOICE_ID, getVoiceName } from "@/lib/voices";
+import { useQuestionTTS } from "@/hooks/use-question-tts";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
