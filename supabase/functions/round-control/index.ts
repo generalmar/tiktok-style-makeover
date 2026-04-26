@@ -63,8 +63,16 @@ Deno.serve(async (req) => {
         .eq("session_id", body.session_id).eq("status", "live");
 
       const duration = session.question_duration_seconds || 25;
+
+      // Estimate TTS reading time so the answer countdown only starts after the voice finishes.
+      // Pull the question text and use ~14 chars/sec + 1.2s padding (min 3s, max 18s).
+      const { data: q } = await admin.from("questions").select("text").eq("id", body.question_id).maybeSingle();
+      const text = (q?.text as string | undefined) ?? "";
+      const estReadSec = Math.min(18, Math.max(3, Math.ceil(text.length / 14) + 1.2));
+
       const now = new Date();
-      const closes = new Date(now.getTime() + duration * 1000);
+      const readingUntil = new Date(now.getTime() + estReadSec * 1000);
+      const closes = new Date(readingUntil.getTime() + duration * 1000);
 
       const { data: round, error } = await admin.from("rounds").insert({
         session_id: body.session_id,
@@ -72,8 +80,9 @@ Deno.serve(async (req) => {
         status: "live",
         duration_seconds: duration,
         started_at: now.toISOString(),
+        reading_until: readingUntil.toISOString(),
         closes_at: closes.toISOString(),
-      }).select().single();
+      } as any).select().single();
       if (error) throw error;
 
       // Mark session active
