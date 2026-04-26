@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, RotateCcw, SkipForward, Square, Copy, Loader2, Trophy, Eye, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import AnswerDistribution from "./AnswerDistribution";
 import MiniLeaderboard from "./MiniLeaderboard";
 import { useAccount } from "@/contexts/AccountContext";
+import { VOICES, DEFAULT_VOICE_ID, getVoiceName } from "@/lib/voices";
+import { useQuestionTTS } from "@/hooks/use-question-tts";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
@@ -37,6 +40,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [revealAnswer, setRevealAnswer] = useState(false);
+  const [voiceId, setVoiceId] = useState<string>(DEFAULT_VOICE_ID);
   const autoAdvanceTimer = useRef<number | null>(null);
   const lastAdvancedRound = useRef<string | null>(null);
 
@@ -57,6 +61,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     if (data) {
       setDuration(data.question_duration_seconds);
       setAutoAdvance((data as any).auto_advance ?? true);
+      setVoiceId((data as any).tts_voice_id ?? DEFAULT_VOICE_ID);
     }
   };
 
@@ -116,26 +121,41 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     return () => { supabase.removeChannel(ch); };
   }, [session?.id]);
 
+  const readingUntilMs = useMemo(() => {
+    const ru = (round as any)?.reading_until as string | null | undefined;
+    return ru ? new Date(ru).getTime() : null;
+  }, [round]);
+
+  const isReading = !!(round?.status === "live" && readingUntilMs && now < readingUntilMs);
+
   const remaining = useMemo(() => {
     if (!round || !round.closes_at || round.status !== "live") return 0;
+    if (isReading) return round.duration_seconds; // pre-show full timer while voice reads
     return Math.max(0, Math.ceil((new Date(round.closes_at).getTime() - now) / 1000));
-  }, [round, now]);
+  }, [round, now, isReading]);
 
   const totalQuestions = sessionQueue.length;
   const hasNextQuestion = sessionQueue.some((item) => !item.played);
+
+  // Play the question aloud once per round, with the session's selected voice.
+  useQuestionTTS({
+    roundId: round?.status === "live" ? round.id : null,
+    text: currentQuestion?.text ?? null,
+    voiceId,
+    enabled: round?.status === "live",
+  });
 
   useEffect(() => {
     onActiveQuestionChange?.(round?.status !== "resolved" ? currentQuestion?.id ?? null : null);
   }, [round?.status, currentQuestion?.id, onActiveQuestionChange]);
 
-  // Auto-resolve when timer hits 0
+  // Auto-resolve when timer hits 0 (don't fire during the reading phase)
   useEffect(() => {
-    if (round?.status === "live" && remaining === 0 && round.closes_at) {
-      // only fire once
+    if (round?.status === "live" && !isReading && remaining === 0 && round.closes_at) {
       handleResolve(round.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, round?.status]);
+  }, [remaining, round?.status, isReading]);
 
   // Hide reveal-answer when round changes
   useEffect(() => { setRevealAnswer(false); }, [round?.id]);
@@ -155,6 +175,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
       question_duration_seconds: duration,
       auto_advance: autoAdvance,
       account_id: currentAccount.id,
+      tts_voice_id: voiceId,
     } as any).select().single();
     if (error || !s) { setBusy(false); toast.error(error?.message || "Failed"); return; }
     const rows = Array.from(selectedIds).map((qid, i) => ({
@@ -239,6 +260,12 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     await supabase.from("sessions").update({ auto_advance: v } as any).eq("id", session.id);
   };
 
+  const updateVoice = async (v: string) => {
+    setVoiceId(v);
+    if (!session) return;
+    await supabase.from("sessions").update({ tts_voice_id: v } as any).eq("id", session.id);
+  };
+
   // Auto-advance to next question after a round resolves, or auto-end if exhausted
   useEffect(() => {
     if (autoAdvanceTimer.current) {
@@ -291,9 +318,14 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
           }`} />
           <span className="text-xs font-display font-semibold uppercase tracking-widest text-muted-foreground">{status}</span>
           {session && (
-            <span className="text-xs text-muted-foreground">
-              · {playedIds.size}/{totalQuestions} played
-            </span>
+            <>
+              <span className="text-xs text-muted-foreground">
+                · {playedIds.size}/{totalQuestions} played
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                · <Volume2 className="w-3 h-3" /> {getVoiceName(voiceId)}
+              </span>
+            </>
           )}
         </div>
         {session && (
@@ -324,6 +356,25 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
               </div>
               <Slider value={[duration]} min={10} max={60} step={5}
                 onValueChange={(v) => setDuration(v[0])} />
+              <div className="pt-2 space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Volume2 className="w-3 h-3" /> Question voice
+                </Label>
+                <Select value={voiceId} onValueChange={setVoiceId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VOICES.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        <span className="font-medium">{v.name}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">{v.description}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground/80">
+                  Each question is read aloud before the countdown starts.
+                </p>
+              </div>
               <div className="flex items-center justify-between pt-2">
                 <div>
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">Auto-advance</Label>
@@ -348,13 +399,20 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
                     Round · {round.status}
                   </span>
                   {round.status === "live" && (
-                    <div className="text-3xl font-display font-bold text-tiktok-cyan tabular-nums">
-                      {remaining}s
-                    </div>
+                    isReading ? (
+                      <div className="flex items-center gap-2 text-tiktok-pink">
+                        <Volume2 className="w-4 h-4 animate-pulse" />
+                        <span className="text-xs font-display font-bold uppercase tracking-widest">Reading question…</span>
+                      </div>
+                    ) : (
+                      <div className="text-3xl font-display font-bold text-tiktok-cyan tabular-nums">
+                        {remaining}s
+                      </div>
+                    )
                   )}
                 </div>
 
-                {round.status === "live" && (
+                {round.status === "live" && !isReading && (
                   <div className="h-1 bg-muted/40 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-tiktok-cyan to-tiktok-pink transition-all duration-500"
                       style={{ width: `${Math.max(0, (remaining / round.duration_seconds) * 100)}%` }} />
@@ -484,6 +542,17 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
               )}
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-3 h-3 text-muted-foreground" />
+                <Select value={voiceId} onValueChange={updateVoice}>
+                  <SelectTrigger className="h-7 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VOICES.map((v) => (
+                      <SelectItem key={v.id} value={v.id} className="text-xs">{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Auto</span>
                 <Switch checked={autoAdvance} onCheckedChange={updateAutoAdvance} />

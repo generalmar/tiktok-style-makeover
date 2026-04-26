@@ -48,7 +48,6 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
       topic: fd.get("topic"),
       count: Number(fd.get("count")),
       difficulty: fd.get("difficulty"),
-      category: fd.get("category") || undefined,
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
@@ -128,7 +127,7 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
               <Label htmlFor="topic">Topic</Label>
               <Input id="topic" name="topic" placeholder="e.g. 2000s pop music" required maxLength={120} />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="count">Count</Label>
                 <Input id="count" name="count" type="number" min={1} max={10} defaultValue={5} required />
@@ -143,10 +142,6 @@ const QuestionGeneratorModal = ({ open, onOpenChange, onCreated }: Props) => {
                     <SelectItem value="hard">Hard</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="category">Category</Label>
-                <Input id="category" name="category" placeholder="optional" maxLength={40} />
               </div>
             </div>
             <DialogFooter>

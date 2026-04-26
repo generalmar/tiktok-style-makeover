@@ -159,6 +159,7 @@ export type Database = {
           duration_seconds: number
           id: string
           question_id: string
+          reading_until: string | null
           resolved_at: string | null
           session_id: string
           started_at: string | null
@@ -170,6 +171,7 @@ export type Database = {
           duration_seconds?: number
           id?: string
           question_id: string
+          reading_until?: string | null
           resolved_at?: string | null
           session_id: string
           started_at?: string | null
@@ -181,6 +183,7 @@ export type Database = {
           duration_seconds?: number
           id?: string
           question_id?: string
+          reading_until?: string | null
           resolved_at?: string | null
           session_id?: string
           started_at?: string | null
@@ -298,6 +301,7 @@ export type Database = {
           owner_id: string | null
           question_duration_seconds: number
           status: Database["public"]["Enums"]["session_status"]
+          tts_voice_id: string
           updated_at: string
         }
         Insert: {
@@ -311,6 +315,7 @@ export type Database = {
           owner_id?: string | null
           question_duration_seconds?: number
           status?: Database["public"]["Enums"]["session_status"]
+          tts_voice_id?: string
           updated_at?: string
         }
         Update: {
@@ -324,6 +329,7 @@ export type Database = {
           owner_id?: string | null
           question_duration_seconds?: number
           status?: Database["public"]["Enums"]["session_status"]
+          tts_voice_id?: string
           updated_at?: string
         }
         Relationships: []

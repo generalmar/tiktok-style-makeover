@@ -1,0 +1,1 @@
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS tts_voice_id text NOT NULL DEFAULT 'EXAVITQu4vr4xnSDxMaL';
