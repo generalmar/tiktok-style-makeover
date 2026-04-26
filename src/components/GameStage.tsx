@@ -40,6 +40,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [revealAnswer, setRevealAnswer] = useState(false);
+  const [voiceId, setVoiceId] = useState<string>(DEFAULT_VOICE_ID);
   const autoAdvanceTimer = useRef<number | null>(null);
   const lastAdvancedRound = useRef<string | null>(null);
 
@@ -60,6 +61,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     if (data) {
       setDuration(data.question_duration_seconds);
       setAutoAdvance((data as any).auto_advance ?? true);
+      setVoiceId((data as any).tts_voice_id ?? DEFAULT_VOICE_ID);
     }
   };
 
