@@ -351,6 +351,25 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
               </div>
               <Slider value={[duration]} min={10} max={60} step={5}
                 onValueChange={(v) => setDuration(v[0])} />
+              <div className="pt-2 space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Volume2 className="w-3 h-3" /> Question voice
+                </Label>
+                <Select value={voiceId} onValueChange={setVoiceId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VOICES.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        <span className="font-medium">{v.name}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">{v.description}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground/80">
+                  Each question is read aloud before the countdown starts.
+                </p>
+              </div>
               <div className="flex items-center justify-between pt-2">
                 <div>
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">Auto-advance</Label>
