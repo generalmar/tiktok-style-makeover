@@ -1,25 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Radio, Clock } from "lucide-react";
+import { Trophy, Radio, Clock, Volume2, Crown, Medal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuestionTTS } from "@/hooks/use-question-tts";
 
 interface Choice { key: string; text: string }
+interface OverlayScore {
+  id: string;
+  viewer_handle: string;
+  viewer_display_name: string | null;
+  score: number;
+  correct_count: number;
+  answer_count: number;
+}
 interface OverlayState {
-  session: { id: string; name: string; status: string; question_duration_seconds: number };
+  session: { id: string; name: string; status: string; question_duration_seconds: number; tts_voice_id: string | null };
   round: {
     id: string;
     status: "idle" | "live" | "closed" | "resolved";
     duration_seconds: number;
     started_at: string | null;
     closes_at: string | null;
+    reading_until: string | null;
     resolved_at: string | null;
     question: { text: string; choices: Choice[]; correct_choice: string | null; category: string } | null;
   } | null;
-  scores: Array<{
-    id: string; viewer_handle: string; viewer_display_name: string | null;
-    score: number; correct_count: number; answer_count: number;
-  }>;
+  scores: OverlayScore[];
   progress: { played: number; total: number };
 }
 
