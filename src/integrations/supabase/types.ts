@@ -159,6 +159,7 @@ export type Database = {
           duration_seconds: number
           id: string
           question_id: string
+          reading_until: string | null
           resolved_at: string | null
           session_id: string
           started_at: string | null
@@ -170,6 +171,7 @@ export type Database = {
           duration_seconds?: number
           id?: string
           question_id: string
+          reading_until?: string | null
           resolved_at?: string | null
           session_id: string
           started_at?: string | null
@@ -181,6 +183,7 @@ export type Database = {
           duration_seconds?: number
           id?: string
           question_id?: string
+          reading_until?: string | null
           resolved_at?: string | null
           session_id?: string
           started_at?: string | null
