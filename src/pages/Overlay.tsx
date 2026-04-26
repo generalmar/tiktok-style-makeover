@@ -108,22 +108,39 @@ const Overlay = () => {
     return () => clearInterval(t);
   }, []);
 
+  const readingUntilMs = useMemo(() => {
+    const ru = state?.round?.reading_until;
+    return ru ? new Date(ru).getTime() : null;
+  }, [state?.round?.reading_until]);
+
+  const isReading = !!(state?.round?.status === "live" && readingUntilMs && now < readingUntilMs);
+
   const remaining = useMemo(() => {
     const r = state?.round;
     if (!r || !r.closes_at || r.status !== "live") return 0;
+    if (isReading) return r.duration_seconds;
     return Math.max(0, Math.ceil((new Date(r.closes_at).getTime() - now) / 1000));
-  }, [state?.round, now]);
+  }, [state?.round, now, isReading]);
 
   const timerPct = useMemo(() => {
     const r = state?.round;
     if (!r || r.status !== "live") return 0;
+    if (isReading) return 100;
     return Math.max(0, Math.min(100, (remaining / r.duration_seconds) * 100));
-  }, [state?.round, remaining]);
+  }, [state?.round, remaining, isReading]);
 
   // Track new round for animation key
   useEffect(() => {
     if (state?.round?.id) lastRoundIdRef.current = state.round.id;
   }, [state?.round?.id]);
+
+  // Read the question aloud once per round, with the session's selected voice.
+  useQuestionTTS({
+    roundId: state?.round?.status === "live" ? state.round.id : null,
+    text: state?.round?.question?.text ?? null,
+    voiceId: state?.session?.tts_voice_id ?? null,
+    enabled: state?.round?.status === "live",
+  });
 
   const sessionFinished = state?.session?.status === "finished";
   const round = state?.round;
