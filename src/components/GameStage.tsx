@@ -121,13 +121,29 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
     return () => { supabase.removeChannel(ch); };
   }, [session?.id]);
 
+  const readingUntilMs = useMemo(() => {
+    const ru = (round as any)?.reading_until as string | null | undefined;
+    return ru ? new Date(ru).getTime() : null;
+  }, [round]);
+
+  const isReading = !!(round?.status === "live" && readingUntilMs && now < readingUntilMs);
+
   const remaining = useMemo(() => {
     if (!round || !round.closes_at || round.status !== "live") return 0;
+    if (isReading) return round.duration_seconds; // pre-show full timer while voice reads
     return Math.max(0, Math.ceil((new Date(round.closes_at).getTime() - now) / 1000));
-  }, [round, now]);
+  }, [round, now, isReading]);
 
   const totalQuestions = sessionQueue.length;
   const hasNextQuestion = sessionQueue.some((item) => !item.played);
+
+  // Play the question aloud once per round, with the session's selected voice.
+  useQuestionTTS({
+    roundId: round?.status === "live" ? round.id : null,
+    text: currentQuestion?.text ?? null,
+    voiceId,
+    enabled: round?.status === "live",
+  });
 
   useEffect(() => {
     onActiveQuestionChange?.(round?.status !== "resolved" ? currentQuestion?.id ?? null : null);
