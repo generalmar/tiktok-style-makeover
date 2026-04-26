@@ -305,8 +305,209 @@ const Overlay = () => {
                   </motion.div>
                 )}
 
-                {/* Mini leaderboard */}
-                <MiniLeaderboard scores={state.scores} />
+                {/* Mini leaderboard — live updating top 3 */}
+                <MiniLeaderboard
+                  scores={state.scores}
+                  sessionId={state.session?.id ?? null}
+                  roundId={round?.id ?? null}
+                  roundStatus={round?.status ?? null}
+                />
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </div>
+
+        {/* Footer prompt */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 px-5 pb-3">
+          <div className="text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
+            Type A · B · C · D in chat
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface LiveAnswer {
+  id: string;
+  viewer_handle: string;
+  viewer_display_name: string | null;
+  choice: string;
+  is_correct: boolean | null;
+}
+
+const POINTS_PER_CORRECT = 100;
+
+const MiniLeaderboard = ({
+  scores,
+  sessionId,
+  roundId,
+  roundStatus,
+}: {
+  scores: OverlayScore[];
+  sessionId: string | null;
+  roundId: string | null;
+  roundStatus: string | null;
+}) => {
+  const [liveAnswers, setLiveAnswers] = useState<LiveAnswer[]>([]);
+  const [correctChoice, setCorrectChoice] = useState<string | null>(null);
+
+  // Look up the correct choice for the current round (overlay state hides it during live).
+  useEffect(() => {
+    let alive = true;
+    setCorrectChoice(null);
+    if (!roundId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("rounds")
+        .select("question_id, questions(correct_choice)")
+        .eq("id", roundId)
+        .maybeSingle();
+      if (!alive) return;
+      const cc = (data as any)?.questions?.correct_choice ?? null;
+      setCorrectChoice(cc);
+    })();
+    return () => { alive = false; };
+  }, [roundId]);
+
+  // Subscribe to answers for this round
+  useEffect(() => {
+    setLiveAnswers([]);
+    if (!roundId) return;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase
+        .from("answers")
+        .select("id, viewer_handle, viewer_display_name, choice, is_correct")
+        .eq("round_id", roundId);
+      if (alive && data) setLiveAnswers(data as LiveAnswer[]);
+    })();
+    const ch = supabase.channel(`overlay-mini:${roundId}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "answers", filter: `round_id=eq.${roundId}` },
+        (p) => setLiveAnswers((cur) => {
+          const a = p.new as LiveAnswer;
+          if (cur.find((x) => x.id === a.id)) return cur;
+          return [...cur, a];
+        }))
+      .subscribe();
+    return () => {
+      alive = false;
+      supabase.removeChannel(ch);
+    };
+  }, [roundId]);
+
+  // Subscribe to score updates for this session
+  const [persistedScores, setPersistedScores] = useState<OverlayScore[]>(scores ?? []);
+  useEffect(() => { setPersistedScores(scores ?? []); }, [scores]);
+  useEffect(() => {
+    if (!sessionId) return;
+    const ch = supabase.channel(`overlay-mini-scores:${sessionId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "session_scores", filter: `session_id=eq.${sessionId}` },
+        async () => {
+          const { data } = await supabase.from("session_scores")
+            .select("id, viewer_handle, viewer_display_name, score, correct_count, answer_count")
+            .eq("session_id", sessionId).order("score", { ascending: false });
+          if (data) setPersistedScores(data as OverlayScore[]);
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [sessionId]);
+
+  const top = useMemo(() => {
+    const map = new Map<string, { handle: string; display: string; score: number; provisional: boolean }>();
+    for (const s of persistedScores) {
+      map.set(s.viewer_handle, {
+        handle: s.viewer_handle,
+        display: s.viewer_display_name || s.viewer_handle,
+        score: s.score,
+        provisional: false,
+      });
+    }
+    if (roundStatus === "live" && correctChoice) {
+      for (const a of liveAnswers) {
+        if (a.is_correct !== null) continue;
+        if (a.choice !== correctChoice) continue;
+        const ex = map.get(a.viewer_handle);
+        if (ex) { ex.score += POINTS_PER_CORRECT; ex.provisional = true; }
+        else {
+          map.set(a.viewer_handle, {
+            handle: a.viewer_handle,
+            display: a.viewer_display_name || a.viewer_handle,
+            score: POINTS_PER_CORRECT,
+            provisional: true,
+          });
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.score - a.score).slice(0, 3);
+  }, [persistedScores, liveAnswers, roundStatus, correctChoice]);
+
+  const rankIcon = (i: number) => {
+    if (i === 0) return <Crown className="w-3 h-3 text-tiktok-pink" />;
+    if (i === 1) return <Medal className="w-3 h-3 text-tiktok-cyan" />;
+    return <Trophy className="w-3 h-3 text-muted-foreground" />;
+  };
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5">
+          <Trophy className="w-3 h-3 text-tiktok-pink" />
+          <span className="text-[10px] font-display font-bold uppercase tracking-widest text-muted-foreground">
+            Top 3 — Live
+          </span>
+        </div>
+        {roundStatus === "live" && (
+          <span className="text-[9px] uppercase tracking-widest text-tiktok-pink font-mono animate-pulse">
+            • Updating
+          </span>
+        )}
+      </div>
+      {top.length === 0 ? (
+        <div className="px-3 py-2 rounded-lg bg-background/40 backdrop-blur-md border border-border/30 text-center">
+          <span className="text-[10px] text-muted-foreground">Waiting for answers…</span>
+        </div>
+      ) : (
+        <AnimatePresence initial={false}>
+          {top.map((r, i) => (
+            <motion.div
+              key={r.handle}
+              layout
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-background/40 backdrop-blur-md border border-border/30"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`text-[10px] font-mono w-4 text-center ${
+                  i === 0 ? "text-tiktok-pink" : "text-muted-foreground"
+                }`}>
+                  #{i + 1}
+                </span>
+                {rankIcon(i)}
+                <span className="text-xs truncate">{r.display}</span>
+              </div>
+              <motion.span
+                key={r.score}
+                initial={{ scale: 1.25 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className={`text-xs font-display font-bold tabular-nums ${
+                  r.provisional ? "text-tiktok-cyan" : "text-foreground"
+                }`}
+              >
+                {r.score}
+              </motion.span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      )}
+    </div>
+  );
+};
               </motion.div>
             </AnimatePresence>
           )}
