@@ -394,13 +394,20 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
                     Round · {round.status}
                   </span>
                   {round.status === "live" && (
-                    <div className="text-3xl font-display font-bold text-tiktok-cyan tabular-nums">
-                      {remaining}s
-                    </div>
+                    isReading ? (
+                      <div className="flex items-center gap-2 text-tiktok-pink">
+                        <Volume2 className="w-4 h-4 animate-pulse" />
+                        <span className="text-xs font-display font-bold uppercase tracking-widest">Reading question…</span>
+                      </div>
+                    ) : (
+                      <div className="text-3xl font-display font-bold text-tiktok-cyan tabular-nums">
+                        {remaining}s
+                      </div>
+                    )
                   )}
                 </div>
 
-                {round.status === "live" && (
+                {round.status === "live" && !isReading && (
                   <div className="h-1 bg-muted/40 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-tiktok-cyan to-tiktok-pink transition-all duration-500"
                       style={{ width: `${Math.max(0, (remaining / round.duration_seconds) * 100)}%` }} />
