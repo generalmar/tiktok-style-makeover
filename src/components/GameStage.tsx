@@ -543,6 +543,17 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
+                <Volume2 className="w-3 h-3 text-muted-foreground" />
+                <Select value={voiceId} onValueChange={updateVoice}>
+                  <SelectTrigger className="h-7 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VOICES.map((v) => (
+                      <SelectItem key={v.id} value={v.id} className="text-xs">{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Auto</span>
                 <Switch checked={autoAdvance} onCheckedChange={updateAutoAdvance} />
               </div>
