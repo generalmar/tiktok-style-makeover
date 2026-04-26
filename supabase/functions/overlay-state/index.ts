@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
         name: session.name,
         status: session.status,
         question_duration_seconds: session.question_duration_seconds,
+        tts_voice_id: (session as any).tts_voice_id ?? null,
       },
       round: round ? {
         id: round.id,
@@ -51,6 +52,7 @@ Deno.serve(async (req) => {
         duration_seconds: round.duration_seconds,
         started_at: round.started_at,
         closes_at: round.closes_at,
+        reading_until: (round as any).reading_until ?? null,
         resolved_at: round.resolved_at,
         question: (round as any).questions ? {
           text: (round as any).questions.text,
