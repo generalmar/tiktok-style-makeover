@@ -508,56 +508,7 @@ const MiniLeaderboard = ({
     </div>
   );
 };
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </div>
 
-        {/* Footer prompt */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 px-5 pb-3">
-          <div className="text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
-            Type A · B · C · D in chat
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const MiniLeaderboard = ({ scores }: { scores: OverlayState["scores"] }) => {
-  if (!scores || scores.length === 0) return null;
-  const top = scores.slice(0, 3);
-  return (
-    <div className="mt-3 space-y-1.5">
-      <div className="flex items-center gap-1.5 px-1">
-        <Trophy className="w-3 h-3 text-tiktok-pink" />
-        <span className="text-[10px] font-display font-bold uppercase tracking-widest text-muted-foreground">
-          Top
-        </span>
-      </div>
-      {top.map((s, i) => (
-        <div
-          key={s.id}
-          className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-background/40 backdrop-blur-md border border-border/30"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className={`text-[10px] font-mono w-4 text-center ${
-                i === 0 ? "text-tiktok-pink" : "text-muted-foreground"
-              }`}
-            >
-              #{i + 1}
-            </span>
-            <span className="text-xs truncate">{s.viewer_display_name || s.viewer_handle}</span>
-          </div>
-          <span className="text-xs font-display font-bold text-tiktok-cyan tabular-nums">
-            {s.score}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const WaitingScreen = () => (
   <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
