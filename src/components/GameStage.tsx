@@ -191,6 +191,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   };
 
   const startNextRound = async () => {
+    primeAudio(); // re-prime in case operator clicked manually
     if (!session) return;
     setBusy(true);
     // Re-read played state from DB to avoid stale local state
