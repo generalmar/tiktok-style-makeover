@@ -13,7 +13,7 @@ import AnswerDistribution from "./AnswerDistribution";
 import MiniLeaderboard from "./MiniLeaderboard";
 import { useAccount } from "@/contexts/AccountContext";
 import { VOICES, DEFAULT_VOICE_ID, getVoiceName } from "@/lib/voices";
-import { useQuestionTTS } from "@/hooks/use-question-tts";
+import { useQuestionTTS, primeAudio } from "@/hooks/use-question-tts";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
