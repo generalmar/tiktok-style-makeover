@@ -161,6 +161,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   useEffect(() => { setRevealAnswer(false); }, [round?.id]);
 
   const createSession = async () => {
+    primeAudio(); // unlock audio while we're still in the click gesture
     if (selectedIds.size === 0) {
       toast.error("Select at least one question first");
       return;
