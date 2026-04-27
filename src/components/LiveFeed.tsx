@@ -1,14 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot } from "lucide-react";
+import { Send, Bot, Radio, Plug, PlugZap, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
 type Answer = Database["public"]["Tables"]["answers"]["Row"];
+
+interface TikTokConnection {
+  id: string;
+  session_id: string;
+  tiktok_username: string;
+  status: "connecting" | "connected" | "disconnected" | "error";
+  last_error: string | null;
+  last_event_at: string | null;
+}
 
 interface Props {
   sessionId: string | null;
@@ -22,6 +31,10 @@ const LiveFeed = ({ sessionId }: Props) => {
   const [handle, setHandle] = useState("tester");
   const [text, setText] = useState("");
   const [autoBusy, setAutoBusy] = useState(false);
+  const [tiktokUsername, setTiktokUsername] = useState("");
+  const [connection, setConnection] = useState<TikTokConnection | null>(null);
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
 
   useEffect(() => {
     if (!sessionId) { setRound(null); setAnswers([]); return; }
@@ -50,6 +63,25 @@ const LiveFeed = ({ sessionId }: Props) => {
         }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
+  }, [sessionId]);
+
+  // Live TikTok connection status (per session).
+  useEffect(() => {
+    if (!sessionId) { setConnection(null); return; }
+    const load = async () => {
+      const { data } = await (supabase.from("tiktok_connections" as any).select("*") as any)
+        .eq("session_id", sessionId).maybeSingle();
+      setConnection((data as TikTokConnection) ?? null);
+      if (data?.tiktok_username && !tiktokUsername) setTiktokUsername(data.tiktok_username);
+    };
+    load();
+    const ch = supabase.channel(`tiktok-conn:${sessionId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "tiktok_connections", filter: `session_id=eq.${sessionId}` },
+        () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   const submit = async (h: string, t: string) => {
@@ -84,6 +116,51 @@ const LiveFeed = ({ sessionId }: Props) => {
     setAutoBusy(false);
   };
 
+  const connectTikTok = async () => {
+    if (!sessionId) { toast.error("Start a session first"); return; }
+    const u = tiktokUsername.trim().replace(/^@/, "");
+    if (!u) { toast.error("Enter a TikTok username"); return; }
+    setConnectBusy(true);
+    const { data, error } = await supabase.functions.invoke("tiktok-chat", {
+      body: { action: "connect", session_id: sessionId, tiktok_username: u },
+    });
+    setConnectBusy(false);
+    if (error || (data as any)?.ok === false) {
+      toast.error(error?.message || (data as any)?.error || "Failed to connect");
+      return;
+    }
+    toast.success(`Connecting to @${u}…`);
+  };
+
+  const disconnectTikTok = async () => {
+    if (!sessionId) return;
+    setConnectBusy(true);
+    const { error } = await supabase.functions.invoke("tiktok-chat", {
+      body: { action: "disconnect", session_id: sessionId },
+    });
+    setConnectBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Disconnected from TikTok");
+  };
+
+  const status = connection?.status ?? "idle";
+  const statusMeta = useMemo(() => {
+    switch (status) {
+      case "connected":
+        return { dot: "bg-tiktok-cyan animate-pulse-live", label: "Connected", color: "text-tiktok-cyan" };
+      case "connecting":
+        return { dot: "bg-tiktok-pink animate-pulse-live", label: "Connecting…", color: "text-tiktok-pink" };
+      case "error":
+        return { dot: "bg-tiktok-pink", label: "Error", color: "text-tiktok-pink" };
+      case "disconnected":
+        return { dot: "bg-muted-foreground", label: "Disconnected", color: "text-muted-foreground" };
+      default:
+        return { dot: "bg-muted-foreground", label: "Not connected", color: "text-muted-foreground" };
+    }
+  }, [status]);
+
+  const isLiveConn = status === "connected" || status === "connecting";
+
   return (
     <div className="w-80 border-l border-border/50 bg-card/40 flex flex-col h-full overflow-hidden">
       <div className="p-4 border-b border-border/30">
@@ -96,19 +173,83 @@ const LiveFeed = ({ sessionId }: Props) => {
         </p>
       </div>
 
-      {/* Simulator */}
+      {/* TikTok connection */}
       <div className="p-4 border-b border-border/30 space-y-2">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Chat simulator</div>
-        <form onSubmit={handleSend} className="space-y-2">
-          <Input value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="@viewer" className="h-8 text-xs" />
-          <div className="flex gap-1.5">
-            <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type A, B, C or D" className="h-8 text-xs" />
-            <Button type="submit" size="sm" variant="cyan" className="h-8 px-2"><Send className="w-3 h-3" /></Button>
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Radio className="w-3 h-3" /> TikTok LIVE chat
           </div>
-        </form>
-        <Button type="button" variant="glass" size="sm" className="w-full h-8 gap-1.5" onClick={simulateBatch} disabled={autoBusy}>
-          <Bot className="w-3 h-3" /> <span className="text-xs">Simulate 10 viewers</span>
-        </Button>
+          <div className={`flex items-center gap-1.5 text-[10px] font-display font-bold uppercase tracking-widest ${statusMeta.color}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
+            {statusMeta.label}
+          </div>
+        </div>
+
+        <div className="flex gap-1.5">
+          <Input
+            value={tiktokUsername}
+            onChange={(e) => setTiktokUsername(e.target.value)}
+            placeholder="@username"
+            className="h-8 text-xs"
+            disabled={isLiveConn}
+          />
+          {isLiveConn ? (
+            <Button
+              type="button" size="sm" variant="glass"
+              className="h-8 px-2 gap-1"
+              onClick={disconnectTikTok}
+              disabled={connectBusy || !sessionId}
+            >
+              {connectBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plug className="w-3 h-3" />}
+              <span className="text-xs">Disconnect</span>
+            </Button>
+          ) : (
+            <Button
+              type="button" size="sm" variant="cyan"
+              className="h-8 px-2 gap-1"
+              onClick={connectTikTok}
+              disabled={connectBusy || !sessionId || !tiktokUsername.trim()}
+            >
+              {connectBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <PlugZap className="w-3 h-3" />}
+              <span className="text-xs">Connect</span>
+            </Button>
+          )}
+        </div>
+
+        {!sessionId && (
+          <p className="text-[10px] text-muted-foreground/80">
+            Create a session first, then connect TikTok chat to ingest answers.
+          </p>
+        )}
+        {connection?.last_error && status === "error" && (
+          <p className="text-[10px] text-tiktok-pink flex items-start gap-1">
+            <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+            <span className="break-words">{connection.last_error}</span>
+          </p>
+        )}
+
+        {/* Hidden dev fallback — chat simulator */}
+        <button
+          type="button"
+          onClick={() => setShowSimulator((s) => !s)}
+          className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {showSimulator ? "Hide" : "Show"} dev simulator
+        </button>
+        {showSimulator && (
+          <div className="space-y-2 pt-1">
+            <form onSubmit={handleSend} className="space-y-2">
+              <Input value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="@viewer" className="h-8 text-xs" />
+              <div className="flex gap-1.5">
+                <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type A, B, C or D" className="h-8 text-xs" />
+                <Button type="submit" size="sm" variant="cyan" className="h-8 px-2"><Send className="w-3 h-3" /></Button>
+              </div>
+            </form>
+            <Button type="button" variant="glass" size="sm" className="w-full h-8 gap-1.5" onClick={simulateBatch} disabled={autoBusy}>
+              <Bot className="w-3 h-3" /> <span className="text-xs">Simulate 10 viewers</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Feed */}
