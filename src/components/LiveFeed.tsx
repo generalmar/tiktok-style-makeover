@@ -220,11 +220,16 @@ const LiveFeed = ({ sessionId }: Props) => {
           )}
         </div>
 
-        {!sessionId && (
-          <p className="text-[10px] text-muted-foreground/80">
-            Create a session first, then connect TikTok chat to ingest answers.
+        {!sessionId ? (
+          <p className="text-[10px] text-tiktok-pink/90 flex items-start gap-1">
+            <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+            <span>Start a session first — then you can connect TikTok chat.</span>
           </p>
-        )}
+        ) : !isLiveConn && !tiktokUsername.trim() ? (
+          <p className="text-[10px] text-muted-foreground/80">
+            Enter a TikTok username (without @) to enable Connect.
+          </p>
+        ) : null}
         {connection?.last_error && status === "error" && (
           <p className="text-[10px] text-tiktok-pink flex items-start gap-1">
             <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
