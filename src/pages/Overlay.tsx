@@ -42,6 +42,7 @@ const Overlay = () => {
   const [now, setNow] = useState(Date.now());
   const [connState, setConnState] = useState<ConnState>("connecting");
   const lastRoundIdRef = useRef<string | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   // Realtime: fetch on mount, then refetch on broadcast events.
   // Light safety-net poll (every 15s) covers any missed messages or reconnects.
