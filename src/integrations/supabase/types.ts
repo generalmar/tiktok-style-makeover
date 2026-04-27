@@ -334,6 +334,42 @@ export type Database = {
         }
         Relationships: []
       }
+      tiktok_connections: {
+        Row: {
+          created_at: string
+          id: string
+          last_error: string | null
+          last_event_at: string | null
+          session_id: string
+          status: string
+          tiktok_username: string
+          updated_at: string
+          viewer_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_event_at?: string | null
+          session_id: string
+          status?: string
+          tiktok_username: string
+          updated_at?: string
+          viewer_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_event_at?: string | null
+          session_id?: string
+          status?: string
+          tiktok_username?: string
+          updated_at?: string
+          viewer_count?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
