@@ -159,7 +159,11 @@ const LiveFeed = ({ sessionId }: Props) => {
     }
   }, [status]);
 
+  // Only fully-connected locks the input. While "connecting" we still show the
+  // Disconnect button (so the operator can cancel) but keep the field editable
+  // so they can fix a typo and reconnect without being stuck.
   const isLiveConn = status === "connected" || status === "connecting";
+  const lockInput = status === "connected";
 
   return (
     <div className="w-80 border-l border-border/50 bg-card/40 flex flex-col h-full overflow-hidden">
