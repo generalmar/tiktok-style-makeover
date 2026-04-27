@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 /**
  * Module-level singleton audio element. Created lazily so SSR/tests don't crash.
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
  */
 let sharedAudio: HTMLAudioElement | null = null;
 let primed = false;
+let listenersBound = false;
 
 // 1-second silent MP3 (base64) used to prime the audio element on first gesture.
 const SILENT_MP3 =
@@ -42,24 +44,32 @@ export function primeAudio(): void {
         audio.currentTime = 0;
         audio.muted = false;
         primed = true;
+        window.dispatchEvent(new CustomEvent("tts-audio-primed"));
       }).catch(() => {
-        // Even a failed silent play sometimes still grants activation; mark primed
-        // so we don't keep retrying. Real plays will surface their own errors.
         audio.muted = false;
-        primed = true;
+        console.warn("[TTS] audio priming was blocked — click again to enable voice.");
       });
     } else {
+      audio.pause();
+      audio.currentTime = 0;
       audio.muted = false;
       primed = true;
+      window.dispatchEvent(new CustomEvent("tts-audio-primed"));
     }
-  } catch {
-    primed = true;
+  } catch (error) {
+    try {
+      audio.muted = false;
+    } catch {
+      // noop
+    }
+    console.warn("[TTS] audio priming failed:", error);
   }
 }
 
 // Auto-prime on the first global user gesture so the operator doesn't have to
 // click a special button.
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && !listenersBound) {
+  listenersBound = true;
   const handler = () => {
     primeAudio();
     window.removeEventListener("pointerdown", handler);
@@ -86,6 +96,15 @@ export function useQuestionTTS({
   enabled?: boolean;
 }) {
   const playedRef = useRef<Set<string>>(new Set());
+  const inflightRef = useRef<Set<string>>(new Set());
+  const [primeVersion, setPrimeVersion] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPrimed = () => setPrimeVersion((value) => value + 1);
+    window.addEventListener("tts-audio-primed", onPrimed);
+    return () => window.removeEventListener("tts-audio-primed", onPrimed);
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -97,8 +116,8 @@ export function useQuestionTTS({
       playedRef.current.add(roundId);
       return;
     }
-    playedRef.current.add(roundId);
-    sessionStorage.setItem(cacheKey, "1");
+    if (inflightRef.current.has(roundId)) return;
+    inflightRef.current.add(roundId);
 
     let cancelled = false;
     (async () => {
@@ -119,20 +138,23 @@ export function useQuestionTTS({
         audio.currentTime = 0;
         const playPromise = audio.play();
         if (playPromise && typeof playPromise.then === "function") {
-          playPromise.catch((err) => {
-            console.warn(
-              "[TTS] playback blocked — click anywhere on the page to enable voice.",
-              err,
-            );
-          });
+          await playPromise;
         }
+        if (cancelled) return;
+        playedRef.current.add(roundId);
+        sessionStorage.setItem(cacheKey, "1");
       } catch (e) {
+        playedRef.current.delete(roundId);
+        if (typeof window !== "undefined") sessionStorage.removeItem(cacheKey);
         console.warn("[TTS] playback failed:", e);
+        toast.error("Click anywhere to enable voice", { id: "tts-enable-voice" });
+      } finally {
+        inflightRef.current.delete(roundId);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [roundId, text, voiceId, enabled]);
+  }, [roundId, text, voiceId, enabled, primeVersion]);
 }
