@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Radio, Clock, Volume2, Crown, Medal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuestionTTS } from "@/hooks/use-question-tts";
+import { useQuestionTTS, primeAudio } from "@/hooks/use-question-tts";
 
 interface Choice { key: string; text: string }
 interface OverlayScore {
@@ -42,6 +42,7 @@ const Overlay = () => {
   const [now, setNow] = useState(Date.now());
   const [connState, setConnState] = useState<ConnState>("connecting");
   const lastRoundIdRef = useRef<string | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   // Realtime: fetch on mount, then refetch on broadcast events.
   // Light safety-net poll (every 15s) covers any missed messages or reconnects.
@@ -148,6 +149,18 @@ const Overlay = () => {
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground flex items-center justify-center p-4 overflow-hidden">
+      {!audioUnlocked && (
+        <button
+          onClick={() => { primeAudio(); setAudioUnlocked(true); }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm"
+          aria-label="Enable sound"
+        >
+          <div className="flex flex-col items-center gap-3 px-6 py-5 rounded-2xl bg-card/80 border border-border/40 shadow-xl">
+            <Volume2 className="w-8 h-8 text-tiktok-pink animate-pulse" />
+            <span className="text-sm font-display font-semibold uppercase tracking-widest">Click to enable voice</span>
+          </div>
+        </button>
+      )}
       {/* 9:16 stage */}
       <div
         className="relative w-full max-w-[480px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl border border-border/40"

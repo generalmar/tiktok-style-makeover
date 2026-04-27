@@ -13,7 +13,7 @@ import AnswerDistribution from "./AnswerDistribution";
 import MiniLeaderboard from "./MiniLeaderboard";
 import { useAccount } from "@/contexts/AccountContext";
 import { VOICES, DEFAULT_VOICE_ID, getVoiceName } from "@/lib/voices";
-import { useQuestionTTS } from "@/hooks/use-question-tts";
+import { useQuestionTTS, primeAudio } from "@/hooks/use-question-tts";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Round = Database["public"]["Tables"]["rounds"]["Row"];
@@ -161,6 +161,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   useEffect(() => { setRevealAnswer(false); }, [round?.id]);
 
   const createSession = async () => {
+    primeAudio(); // unlock audio while we're still in the click gesture
     if (selectedIds.size === 0) {
       toast.error("Select at least one question first");
       return;
@@ -190,6 +191,7 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   };
 
   const startNextRound = async () => {
+    primeAudio(); // re-prime in case operator clicked manually
     if (!session) return;
     setBusy(true);
     // Re-read played state from DB to avoid stale local state
