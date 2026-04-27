@@ -195,7 +195,7 @@ const LiveFeed = ({ sessionId }: Props) => {
             onChange={(e) => setTiktokUsername(e.target.value)}
             placeholder="@username"
             className="h-8 text-xs"
-            disabled={isLiveConn}
+            disabled={lockInput}
           />
           {isLiveConn ? (
             <Button
