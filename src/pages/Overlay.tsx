@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Radio, Clock, Volume2, Crown, Medal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuestionTTS } from "@/hooks/use-question-tts";
+import { useQuestionTTS, primeAudio } from "@/hooks/use-question-tts";
 
 interface Choice { key: string; text: string }
 interface OverlayScore {
