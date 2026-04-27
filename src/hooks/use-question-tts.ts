@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -10,6 +10,20 @@ import { toast } from "sonner";
 let sharedAudio: HTMLAudioElement | null = null;
 let primed = false;
 let listenersBound = false;
+let primeVersion = 0;
+const primeListeners = new Set<() => void>();
+
+function subscribePrime(cb: () => void) {
+  primeListeners.add(cb);
+  return () => primeListeners.delete(cb);
+}
+function getPrimeVersion() {
+  return primeVersion;
+}
+function notifyPrimed() {
+  primeVersion += 1;
+  primeListeners.forEach((cb) => cb());
+}
 
 // 1-second silent MP3 (base64) used to prime the audio element on first gesture.
 const SILENT_MP3 =
@@ -44,7 +58,7 @@ export function primeAudio(): void {
         audio.currentTime = 0;
         audio.muted = false;
         primed = true;
-        window.dispatchEvent(new CustomEvent("tts-audio-primed"));
+        notifyPrimed();
       }).catch(() => {
         audio.muted = false;
         console.warn("[TTS] audio priming was blocked — click again to enable voice.");
@@ -54,7 +68,7 @@ export function primeAudio(): void {
       audio.currentTime = 0;
       audio.muted = false;
       primed = true;
-      window.dispatchEvent(new CustomEvent("tts-audio-primed"));
+      notifyPrimed();
     }
   } catch (error) {
     try {
@@ -97,14 +111,11 @@ export function useQuestionTTS({
 }) {
   const playedRef = useRef<Set<string>>(new Set());
   const inflightRef = useRef<Set<string>>(new Set());
-  const [primeVersion, setPrimeVersion] = useState(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onPrimed = () => setPrimeVersion((value) => value + 1);
-    window.addEventListener("tts-audio-primed", onPrimed);
-    return () => window.removeEventListener("tts-audio-primed", onPrimed);
-  }, []);
+  const primeVersionValue = useSyncExternalStore(
+    subscribePrime,
+    getPrimeVersion,
+    getPrimeVersion,
+  );
 
   useEffect(() => {
     if (!enabled) return;
@@ -156,5 +167,5 @@ export function useQuestionTTS({
     return () => {
       cancelled = true;
     };
-  }, [roundId, text, voiceId, enabled, primeVersion]);
+  }, [roundId, text, voiceId, enabled, primeVersionValue]);
 }
