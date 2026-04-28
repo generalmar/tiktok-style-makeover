@@ -49,10 +49,15 @@ interface SignerWebcastResponse {
 }
 
 async function fetchWebcastUrl(username: string): Promise<{ wsUrl: string; wsParams: Record<string, string> } | { error: string }> {
+  if (!SIGNER_API_KEY) {
+    return { error: "Missing EULERSTREAM_API_KEY secret. Get a free key at eulerstream.com and add it in project secrets." };
+  }
   const url = new URL("/webcast/fetch", SIGNER_BASE);
   url.searchParams.set("uniqueId", username.replace(/^@/, ""));
-  if (SIGNER_API_KEY) url.searchParams.set("apiKey", SIGNER_API_KEY);
-  const res = await fetch(url.toString(), { method: "GET" });
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: { "X-Api-Key": SIGNER_API_KEY },
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     return { error: `Signer ${res.status}: ${text.slice(0, 240) || res.statusText}` };

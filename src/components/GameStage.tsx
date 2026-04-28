@@ -70,11 +70,14 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   const loadRoundForSession = async (sessionId: string) => {
     const { data: r } = await supabase.from("rounds").select("*")
       .eq("session_id", sessionId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    setRound(r || null);
     if (r) {
       const { data: q } = await supabase.from("questions").select("*").eq("id", r.question_id).maybeSingle();
+      // Set question first so that when round flips to "live", the matching
+      // question is already in state — prevents TTS from reading stale text.
       setCurrentQuestion(q || null);
+      setRound(r);
     } else {
+      setRound(null);
       setCurrentQuestion(null);
     }
   };
@@ -138,11 +141,17 @@ const GameStage = ({ selectedIds, onClearSelection, onActiveQuestionChange }: Pr
   const hasNextQuestion = sessionQueue.some((item) => !item.played);
 
   // Play the question aloud once per round, with the session's selected voice.
+  // Guard: only fire when the loaded question matches the current round, otherwise
+  // we'd "play" the previous round's text against the new round id and cache it.
+  const ttsReady =
+    round?.status === "live" &&
+    !!currentQuestion &&
+    currentQuestion.id === round.question_id;
   useQuestionTTS({
-    roundId: round?.status === "live" ? round.id : null,
-    text: currentQuestion?.text ?? null,
+    roundId: ttsReady ? round!.id : null,
+    text: ttsReady ? currentQuestion!.text : null,
     voiceId,
-    enabled: round?.status === "live",
+    enabled: ttsReady,
   });
 
   useEffect(() => {
