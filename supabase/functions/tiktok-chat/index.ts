@@ -65,6 +65,21 @@ async function fetchWebcastUrl(username: string): Promise<{ wsUrl: string; wsPar
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    // Surface common billing/auth errors in plain language so the UI can show them.
+    if (res.status === 402) {
+      return {
+        error:
+          "EulerStream free tier does not allow connecting by TikTok username (unique_id). " +
+          "You need a Pro plan at eulerstream.com (~$10/mo) to resolve usernames. " +
+          "In the meantime, use the Simulator (dev mode) to test the flow.",
+      };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { error: "EulerStream API key is invalid or unauthorized. Check the EULERSTREAM_API_KEY secret." };
+    }
+    if (res.status === 429) {
+      return { error: "EulerStream rate limit reached. Wait a moment and try again, or upgrade your plan." };
+    }
     return { error: `Signer ${res.status}: ${text.slice(0, 240) || res.statusText}` };
   }
   const json = (await res.json()) as SignerWebcastResponse;
