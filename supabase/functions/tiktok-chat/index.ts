@@ -52,8 +52,13 @@ async function fetchWebcastUrl(username: string): Promise<{ wsUrl: string; wsPar
   if (!SIGNER_API_KEY) {
     return { error: "Missing EULERSTREAM_API_KEY secret. Get a free key at eulerstream.com and add it in project secrets." };
   }
+  const sanitizedUsername = username.trim().replace(/^@/, "");
+  if (!sanitizedUsername) {
+    return { error: "TikTok username is required." };
+  }
   const url = new URL("/webcast/fetch", SIGNER_BASE);
-  url.searchParams.set("uniqueId", username.replace(/^@/, ""));
+  url.searchParams.set("unique_id", sanitizedUsername);
+  url.searchParams.set("uniqueId", sanitizedUsername);
   const res = await fetch(url.toString(), {
     method: "GET",
     headers: { "X-Api-Key": SIGNER_API_KEY },
